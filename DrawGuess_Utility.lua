@@ -10,6 +10,7 @@ local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService        = game:GetService("RunService")
 local TweenService      = game:GetService("TweenService")
+local HttpService       = game:GetService("HttpService")
 local LocalPlayer       = Players.LocalPlayer
 local PlayerGui         = LocalPlayer:WaitForChild("PlayerGui")
 
@@ -128,10 +129,15 @@ local function uploadToGist()
         end
 
         local existing = ""
-        local raw = res.Body or ""
-        local cm = raw:match('"' .. GIST_FILE .. '".-"content":"(.-[^\\])"')
-        if cm then
-            existing = cm:gsub("\\n","\n"):gsub('\\"','"'):gsub("\\\\","\\")
+        local decoded
+        local okDecode = pcall(function()
+            decoded = HttpService:JSONDecode(res.Body or "{}")
+        end)
+        local files = okDecode and decoded and decoded.files
+        local gistEntry = files and files[GIST_FILE]
+        local gistContent = gistEntry and gistEntry.content
+        if type(gistContent) == "string" then
+            existing = gistContent
             if existing:sub(-1) ~= "\n" then existing = existing .. "\n" end
         else
             -- Tidak bisa parse content — batalkan, jangan overwrite
@@ -180,15 +186,17 @@ local function loadLearnedWords()
         })
 
         if ok2 and res and res.StatusCode == 200 then
-            local raw = res.Body or ""
-            local cm = raw:match('"DrawGuess_Words.txt".-"content":"(.-[^\\])"')
-            if not cm then
-                cm = raw:match('"content"%s*:%s*"(.-[^\\])"')
-            end
-            if cm then
-                local decoded = cm:gsub("\\n","\n"):gsub('\\"','"'):gsub("\\\\","\\")
+            local payload
+            local okJson = pcall(function()
+                payload = HttpService:JSONDecode(res.Body or "{}")
+            end)
+            local files = okJson and payload and payload.files
+            local gistEntry = files and files[GIST_FILE]
+            local gistContent = gistEntry and gistEntry.content
+            if type(gistContent) == "string" then
+                local decodedWords = gistContent
                 local added = 0
-                for line in (decoded .. "\n"):gmatch("([^\n]*)\n") do
+                for line in (decodedWords .. "\n"):gmatch("([^\n]*)\n") do
                     local w = line:lower():match("^%s*(.-)%s*$")
                     if w ~= "" and not wordSet[w] then
                         WORDLIST[#WORDLIST+1] = w
@@ -425,7 +433,7 @@ end
 local function renderLocalStroke(posX, posY, rotation, length, pixelSize, color, surfZ)
     if length <= 0 then return end
 
-    local surfaceZ = getSurfaceZ()
+    local surfaceZ = surfZ or getSurfaceZ()
     local partThickness = 0.1
 
     local ok = pcall(function()
@@ -454,7 +462,12 @@ local function renderLocalStroke(posX, posY, rotation, length, pixelSize, color,
 end
 
 -- Fungsi untuk menggambar teks di canvas
-local function autoDraw(text, startX, startY, letterScale, color, pixLayer)
+local autoGuessEnabled, autoDrawEnabled, autoDrawDone, autoPickWord
+local drawColor, shadowColor, shadowEnabled, rainbowEnabled
+local SHADOW_DRAW_LAYER, TEXT_DRAW_LAYER
+local allUnderscoreDone, sentWords
+
+local function autoDraw(text, startX, startY, letterScale, color, pixLayer, isShadowPass, rainbowStartIndex)
     if not R.draw or not R.wayPoint then
         return
     end
@@ -473,9 +486,14 @@ local function autoDraw(text, startX, startY, letterScale, color, pixLayer)
             R.drawTools:FireServer(pixLayer)
             task.wait(0.02)
         end
-        -- Set brush size dan warna
-        R.drawTools:FireServer(1.4, color or drawColor)
-        task.wait(0.03)
+        local function getRainbowColor(i, shadowPass)
+            local hue = ((i - 1) % 24) / 24
+            local base = Color3.fromHSV(hue, 0.95, 1)
+            if shadowPass then
+                return Color3.new(base.R * 0.45, base.G * 0.45, base.B * 0.45)
+            end
+            return base
+        end
 
         local function makeVec(x, y, z)
             local ok, v = pcall(vector.create, x, y, z)
@@ -483,14 +501,33 @@ local function autoDraw(text, startX, startY, letterScale, color, pixLayer)
             return Vector3.new(x, y, z)
         end
 
-        -- Cache surfaceZ sekali di awal
+        -- Cache surfaceZ sekali di awal + offset layer lokal agar tidak saling tumpuk
         local surfaceZ = getSurfaceZ()
+        local layerOffset = 0
+        if type(pixLayer) == "number" then
+            local layerIndex = math.clamp(math.floor(pixLayer + 0.5), 1, 4)
+            layerOffset = (layerIndex - 1) * 0.035
+        end
+        local layeredSurfaceZ = surfaceZ + layerOffset
+        local currentBrushColor = nil
 
         -- Gambar huruf
         for ci = 1, #text do
             local ch = text:sub(ci, ci)
             local strokes = FONT[ch]
             if strokes then
+                local rainbowIndex = (rainbowStartIndex or 1) + ci - 1
+                local letterColor = rainbowEnabled and getRainbowColor(rainbowIndex, isShadowPass) or (color or drawColor)
+                if (not currentBrushColor)
+                   or currentBrushColor.R ~= letterColor.R
+                   or currentBrushColor.G ~= letterColor.G
+                   or currentBrushColor.B ~= letterColor.B then
+                    pcall(function()
+                        R.drawTools:FireServer(1.4, letterColor)
+                    end)
+                    task.wait(0.01)
+                    currentBrushColor = letterColor
+                end
                 for si, stroke in ipairs(strokes) do
                     if #stroke >= 1 then
                         local p0 = stroke[1]
@@ -518,7 +555,7 @@ local function autoDraw(text, startX, startY, letterScale, color, pixLayer)
                                 R.draw:FireServer(makeVec(mx, my, angle), len)
                             end)
                             renderLocalStroke(mx, my, angle, len, 1.4,
-                                color or Color3.fromRGB(0,0,0), surfaceZ)
+                                letterColor or Color3.fromRGB(0,0,0), layeredSurfaceZ)
                             task.wait(0.02)
                             prevX, prevY = nx, ny
                         end
@@ -544,14 +581,18 @@ local State = {
     hasGuessed     = false,
     gameActive     = false,
 }
-local autoGuessEnabled  = false
-local autoDrawEnabled   = false
-local autoDrawDone      = false
-local autoPickWord      = false
-local drawColor         = Color3.fromRGB(0, 0, 0)   -- warna huruf
-local shadowColor       = Color3.fromRGB(0, 0, 0)   -- warna shadow
-local allUnderscoreDone = false
-local sentWords         = {}
+autoGuessEnabled  = false
+autoDrawEnabled   = false
+autoDrawDone      = false
+autoPickWord      = false
+drawColor         = Color3.fromRGB(0, 0, 0)   -- warna huruf
+shadowColor       = Color3.fromRGB(0, 0, 0)   -- warna shadow
+shadowEnabled     = true
+rainbowEnabled    = false
+SHADOW_DRAW_LAYER = 1
+TEXT_DRAW_LAYER   = 2
+allUnderscoreDone = false
+sentWords         = {}
 
 -- KIRIM TEBAKAN
 local function sendGuessWord(word)
@@ -725,26 +766,36 @@ if R.word then
                                 if #ln > longest then longest = #ln end
                             end
                             local canvasW = 72
-                            local maxScale = canvasW / (5.5 * longest - 0.5)
-                            local letterScale = math.min(1.8, math.max(0.6, maxScale))
+                            local canvasH = 26
+                            local maxScaleW = canvasW / (5.5 * longest - 0.5)
+                            local maxScaleH = canvasH / (numLines * 8 + (numLines - 1) * 2.5)
+                            local maxScale = math.min(maxScaleW, maxScaleH)
+                            local letterScale = math.min(1.8, math.max(0.5, maxScale))
                             local letterW = 5.5 * letterScale
                             local lineH = 8 * letterScale
                             local gap = letterScale * 2.5
                             local totalH = numLines * lineH + (numLines - 1) * gap
                             -- Gambar tiap baris dari atas ke bawah
                             -- Y canvas: besar = atas, kecil = bawah
+                            local centerY = 37
+                            local firstLineY = centerY + (totalH / 2) - lineH
                             local delay = 0
+                            local rainbowCursor = 1
                             for li, ln in ipairs(lines) do
                                 local lw = #ln * letterW - letterScale * 0.5
-                                local sy = 35 + totalH/2 - (li-1) * (lineH + gap) - lineH
+                                local sy = firstLineY - (li - 1) * (lineH + gap)
                                 local lx = -lw / 2
                                 local d  = delay
+                                local rainbowStart = rainbowCursor
                                 task.delay(d, function()
                                     local shadowOffset = letterScale * 0.35
-                                    autoDraw(ln, lx + shadowOffset, sy - shadowOffset, letterScale, shadowColor, 0.0)
-                                    task.wait(#ln * 0.08)
-                                    autoDraw(ln, lx, sy, letterScale, clr, 0.1)
+                                    if shadowEnabled then
+                                        autoDraw(ln, lx + shadowOffset, sy - shadowOffset, letterScale, shadowColor, SHADOW_DRAW_LAYER, true, rainbowStart)
+                                        task.wait(#ln * 0.08)
+                                    end
+                                    autoDraw(ln, lx, sy, letterScale, clr, TEXT_DRAW_LAYER, false, rainbowStart)
                                 end)
+                                rainbowCursor = rainbowCursor + #ln + 1
                                 delay = delay + #ln * 0.12 + 0.3
                             end
                         else
@@ -759,9 +810,11 @@ if R.word then
                             local startY = 35 - (8 * letterScale / 2)
                             local shadowOffset = letterScale * 0.35
                             -- Shadow di Layer 1, huruf asli di Layer 2
-                            autoDraw(w, startX + shadowOffset, startY - shadowOffset, letterScale, shadowColor, 0.0)
-                            task.wait(#w * 0.08)
-                            autoDraw(w, startX, startY, letterScale, clr, 0.1)
+                            if shadowEnabled then
+                                autoDraw(w, startX + shadowOffset, startY - shadowOffset, letterScale, shadowColor, SHADOW_DRAW_LAYER, true, 1)
+                                task.wait(#w * 0.08)
+                            end
+                            autoDraw(w, startX, startY, letterScale, clr, TEXT_DRAW_LAYER, false, 1)
                         end
                     end)
                 end
@@ -885,7 +938,6 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
-local HttpService = game:GetService("HttpService")
 
 local Player = Players.LocalPlayer
 local Mouse = Player:GetMouse()
@@ -1965,8 +2017,8 @@ local Visible2 = true
 local MobileToggle = Create("ImageButton", {
     Parent = ScreenGui,
     Size = UDim2.new(0,44,0,44),
-    Position = UDim2.new(0.5,0,0,10),
-    AnchorPoint = Vector2.new(0.5,0),
+    Position = UDim2.new(1,-60,0,34),
+    AnchorPoint = Vector2.new(1,0),
     BackgroundColor3 = CFG.MainColor,
     Image = "rbxassetid://124532527991032",
     ImageColor3 = Color3.new(1,1,1),
@@ -2123,6 +2175,10 @@ CtrlGroup:Toggle({Name = "Auto Guess", Callback = function(v)
 end})
 CtrlGroup:Toggle({Name = "Auto Draw",      Callback = function(v) autoDrawEnabled = v end})
 CtrlGroup:Toggle({Name = "Auto Pick Word", Callback = function(v) autoPickWord    = v end})
+local ShadowToggle = CtrlGroup:Toggle({Name = "Draw Shadow", Callback = function(v)
+    shadowEnabled = v
+end})
+ShadowToggle.Set(true)
 
 local ColorGroup = TabMain:Group("Draw Colors")
 ColorGroup:ColorPicker({Name = "Warna Huruf", Default = Color3.fromRGB(0, 0, 0), Callback = function(c)
@@ -2130,6 +2186,9 @@ ColorGroup:ColorPicker({Name = "Warna Huruf", Default = Color3.fromRGB(0, 0, 0),
 end})
 ColorGroup:ColorPicker({Name = "Warna Shadow", Default = Color3.fromRGB(0, 0, 0), Callback = function(c)
     shadowColor = c
+end})
+ColorGroup:Toggle({Name = "Rainbow Draw", Callback = function(v)
+    rainbowEnabled = v
 end})
 
 -- ── MISC TAB ────────────────────────────────
