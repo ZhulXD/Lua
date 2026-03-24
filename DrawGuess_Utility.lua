@@ -1662,11 +1662,13 @@ function Library:Tab(name, icon)
                 local absPos = Preview.AbsolutePosition
                 local absSize = Preview.AbsoluteSize
                 local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+                local uiPos = MainFrame.AbsolutePosition
+                local uiSize = MainFrame.AbsoluteSize
 
-                -- Buka di samping kanan UI; fallback ke kiri jika mentok layar
-                local x = absPos.X + absSize.X + 8
+                -- Tempel tepat di samping window UI utama (kanan, fallback kiri)
+                local x = uiPos.X + uiSize.X + 8
                 if x + PICKER_W > viewport.X - 8 then
-                    x = absPos.X - PICKER_W - 8
+                    x = uiPos.X - PICKER_W - 8
                 end
 
                 -- Susun agar tidak tabrakan: picker ganjil di atas, genap di bawah
