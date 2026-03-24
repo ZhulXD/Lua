@@ -1275,13 +1275,10 @@ function Library:Tab(name, icon)
             local uiPos = MainFrame.AbsolutePosition
             local uiSize = MainFrame.AbsoluteSize
 
-            -- Pilih sisi yang benar-benar di luar UI utama
+            -- Prioritas kiri; jika UI digeser terlalu kiri, pindah ke samping kanan UI
             local leftAbsX = uiPos.X - PICKER_W - 8
-            local rightAbsX = uiPos.X + uiSize.X + 8
             local canLeft = leftAbsX >= 8
-            local canRight = (rightAbsX + PICKER_W) <= (viewport.X - 8)
-            local useLeft = canLeft or not canRight
-            local xLocal = useLeft and (-PICKER_W - 8) or (uiSize.X + 8)
+            local xLocal = canLeft and (-PICKER_W - 8) or (uiSize.X + 8)
 
             -- Hitung stack sebagai satu blok supaya tidak saling tabrakan saat clamp
             local stackGap = 8
