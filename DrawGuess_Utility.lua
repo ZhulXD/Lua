@@ -462,7 +462,7 @@ local function renderLocalStroke(posX, posY, rotation, length, pixelSize, color,
 end
 
 -- Fungsi untuk menggambar teks di canvas
-local function autoDraw(text, startX, startY, letterScale, color, pixLayer)
+local function autoDraw(text, startX, startY, letterScale, color, pixLayer, isShadowPass)
     if not R.draw or not R.wayPoint then
         return
     end
@@ -481,9 +481,14 @@ local function autoDraw(text, startX, startY, letterScale, color, pixLayer)
             R.drawTools:FireServer(pixLayer)
             task.wait(0.02)
         end
-        -- Set brush size dan warna
-        R.drawTools:FireServer(1.4, color or drawColor)
-        task.wait(0.03)
+        local function getRainbowColor(i, shadowPass)
+            local hue = ((i - 1) % 24) / 24
+            local base = Color3.fromHSV(hue, 0.95, 1)
+            if shadowPass then
+                return Color3.new(base.R * 0.45, base.G * 0.45, base.B * 0.45)
+            end
+            return base
+        end
 
         local function makeVec(x, y, z)
             local ok, v = pcall(vector.create, x, y, z)
@@ -499,12 +504,24 @@ local function autoDraw(text, startX, startY, letterScale, color, pixLayer)
             layerOffset = (layerIndex - 1) * 0.035
         end
         local layeredSurfaceZ = surfaceZ + layerOffset
+        local currentBrushColor = nil
 
         -- Gambar huruf
         for ci = 1, #text do
             local ch = text:sub(ci, ci)
             local strokes = FONT[ch]
             if strokes then
+                local letterColor = rainbowEnabled and getRainbowColor(ci, isShadowPass) or (color or drawColor)
+                if (not currentBrushColor)
+                   or currentBrushColor.R ~= letterColor.R
+                   or currentBrushColor.G ~= letterColor.G
+                   or currentBrushColor.B ~= letterColor.B then
+                    pcall(function()
+                        R.drawTools:FireServer(1.4, letterColor)
+                    end)
+                    task.wait(0.01)
+                    currentBrushColor = letterColor
+                end
                 for si, stroke in ipairs(strokes) do
                     if #stroke >= 1 then
                         local p0 = stroke[1]
@@ -532,7 +549,7 @@ local function autoDraw(text, startX, startY, letterScale, color, pixLayer)
                                 R.draw:FireServer(makeVec(mx, my, angle), len)
                             end)
                             renderLocalStroke(mx, my, angle, len, 1.4,
-                                color or Color3.fromRGB(0,0,0), layeredSurfaceZ)
+                                letterColor or Color3.fromRGB(0,0,0), layeredSurfaceZ)
                             task.wait(0.02)
                             prevX, prevY = nx, ny
                         end
@@ -565,6 +582,7 @@ local autoPickWord      = false
 local drawColor         = Color3.fromRGB(0, 0, 0)   -- warna huruf
 local shadowColor       = Color3.fromRGB(0, 0, 0)   -- warna shadow
 local shadowEnabled     = true
+local rainbowEnabled    = false
 local SHADOW_DRAW_LAYER = 1
 local TEXT_DRAW_LAYER   = 2
 local allUnderscoreDone = false
@@ -759,10 +777,10 @@ if R.word then
                                 task.delay(d, function()
                                     local shadowOffset = letterScale * 0.35
                                     if shadowEnabled then
-                                        autoDraw(ln, lx + shadowOffset, sy - shadowOffset, letterScale, shadowColor, SHADOW_DRAW_LAYER)
+                                        autoDraw(ln, lx + shadowOffset, sy - shadowOffset, letterScale, shadowColor, SHADOW_DRAW_LAYER, true)
                                         task.wait(#ln * 0.08)
                                     end
-                                    autoDraw(ln, lx, sy, letterScale, clr, TEXT_DRAW_LAYER)
+                                    autoDraw(ln, lx, sy, letterScale, clr, TEXT_DRAW_LAYER, false)
                                 end)
                                 delay = delay + #ln * 0.12 + 0.3
                             end
@@ -779,10 +797,10 @@ if R.word then
                             local shadowOffset = letterScale * 0.35
                             -- Shadow di Layer 1, huruf asli di Layer 2
                             if shadowEnabled then
-                                autoDraw(w, startX + shadowOffset, startY - shadowOffset, letterScale, shadowColor, SHADOW_DRAW_LAYER)
+                                autoDraw(w, startX + shadowOffset, startY - shadowOffset, letterScale, shadowColor, SHADOW_DRAW_LAYER, true)
                                 task.wait(#w * 0.08)
                             end
-                            autoDraw(w, startX, startY, letterScale, clr, TEXT_DRAW_LAYER)
+                            autoDraw(w, startX, startY, letterScale, clr, TEXT_DRAW_LAYER, false)
                         end
                     end)
                 end
@@ -2154,6 +2172,9 @@ ColorGroup:ColorPicker({Name = "Warna Huruf", Default = Color3.fromRGB(0, 0, 0),
 end})
 ColorGroup:ColorPicker({Name = "Warna Shadow", Default = Color3.fromRGB(0, 0, 0), Callback = function(c)
     shadowColor = c
+end})
+ColorGroup:Toggle({Name = "Rainbow Draw", Callback = function(v)
+    rainbowEnabled = v
 end})
 
 -- ── MISC TAB ────────────────────────────────
