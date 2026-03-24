@@ -1272,23 +1272,24 @@ function Library:Tab(name, icon)
             end)
 
             local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
-            local uiPos = MainFrame.AbsolutePosition
             local uiSize = MainFrame.AbsoluteSize
+            local uiAbsX = (MainFrame.Position.X.Scale * viewport.X) + MainFrame.Position.X.Offset
+            local uiAbsY = (MainFrame.Position.Y.Scale * viewport.Y) + MainFrame.Position.Y.Offset
 
             -- Prioritas kiri; jika UI digeser terlalu kiri, pindah ke samping kanan UI
-            local leftAbsX = uiPos.X - PICKER_W - 8
+            local leftAbsX = uiAbsX - PICKER_W - 8
             local canLeft = leftAbsX >= 8
             local xLocal = canLeft and (-PICKER_W - 8) or (uiSize.X + 8)
 
             -- Hitung stack sebagai satu blok supaya tidak saling tabrakan saat clamp
             local stackGap = 8
             local stackTotal = (#OpenPickers * PICKER_H) + ((#OpenPickers - 1) * stackGap)
-            local startAbsY = uiPos.Y + 34
+            local startAbsY = uiAbsY + 34
             startAbsY = math.clamp(startAbsY, 8, math.max(8, viewport.Y - 8 - stackTotal))
 
             for idx, pickerMeta in ipairs(OpenPickers) do
                 local yAbs = startAbsY + ((idx - 1) * (PICKER_H + stackGap))
-                pickerMeta.Frame.Position = UDim2.fromOffset(xLocal, yAbs - uiPos.Y)
+                pickerMeta.Frame.Position = UDim2.fromOffset(xLocal, yAbs - uiAbsY)
             end
         end
 
