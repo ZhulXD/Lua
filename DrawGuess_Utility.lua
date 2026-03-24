@@ -1259,6 +1259,7 @@ function Library:Tab(name, icon)
         })
 
         local ItemFuncs = {}
+        local ColorPickerCount = 0
 
         function ItemFuncs:Toggle(cfg)
             local Enabled = false
@@ -1507,6 +1508,9 @@ function Library:Tab(name, icon)
         function ItemFuncs:ColorPicker(cfg)
             local Color = cfg.Default or Color3.fromRGB(255, 255, 255)
             local Opened = false
+            ColorPickerCount = ColorPickerCount + 1
+            local PickerOrder = ColorPickerCount
+            local PickerConnection
             
             local Frame = Create("Frame", {
                 Parent = Content,
@@ -1540,7 +1544,7 @@ function Library:Tab(name, icon)
             })
 
             local PickerFrame = Create("Frame", {
-                Parent = ScreenGui,
+                Parent = MainFrame,
                 Size = UDim2.new(0, 180, 0, 0),
                 Position = UDim2.new(0, 0, 0, 0),
                 ZIndex = 200,
@@ -1604,8 +1608,9 @@ function Library:Tab(name, icon)
                 Create("UICorner", {CornerRadius = UDim.new(0, 2)})
             })
 
-            local H, S, V = 0, 1, 1
+            local H, S, V = Color3.toHSV(Color)
             local DraggingHSV, DraggingHue = false, false
+            local PICKER_W, PICKER_H = 180, 170
 
             local function UpdateColor()
                 Color = Color3.fromHSV(H, S, V)
@@ -1614,6 +1619,7 @@ function Library:Tab(name, icon)
                 Cursor.Position = UDim2.new(S, 0, 1 - V, 0)
                 if cfg.Callback then cfg.Callback(Color) end
             end
+            UpdateColor()
 
             SatValPanel.InputBegan:Connect(function(inp) 
                 if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then 
@@ -1652,25 +1658,55 @@ function Library:Tab(name, icon)
                 end
             end)
 
+            local function PlacePicker()
+                local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+                local uiPos = MainFrame.AbsolutePosition
+                local uiSize = MainFrame.AbsoluteSize
+
+                -- Tempel tepat di samping MainFrame (default kiri, fallback kanan)
+                local x = -PICKER_W - 8
+                if uiPos.X + x < 8 then
+                    x = uiSize.X + 8
+                end
+                if uiPos.X + x + PICKER_W > viewport.X - 8 then
+                    x = math.max(8 - uiPos.X, x)
+                end
+
+                -- Stack vertikal di samping UI: picker pertama di atas, berikutnya di bawah
+                local topOffset = 34
+                local stackGap = 8
+                local y = uiPos.Y + topOffset + ((PickerOrder - 1) * (PICKER_H + stackGap))
+                y = math.clamp(y, 8, math.max(8, viewport.Y - PICKER_H - 8))
+
+                PickerFrame.Position = UDim2.fromOffset(x, y - uiPos.Y)
+            end
+
             Preview.MouseButton1Click:Connect(function()
                 Opened = not Opened
                 if Opened then
-                    local absPos = Preview.AbsolutePosition
-                    local absSize = Preview.AbsoluteSize
-                    local scale = UIScale.Scale
-                    -- Posisi di bawah kotak Preview, rata kanan
-                    PickerFrame.Position = UDim2.fromOffset(
-                        absPos.X + absSize.X - 180 * scale,
-                        absPos.Y + absSize.Y + 5
-                    )
+                    PlacePicker()
                     PickerFrame.Visible = true
                     for _, v in ipairs(PickerFrame:GetDescendants()) do
                         pcall(function() v.ZIndex = 200 end)
                     end
-                    Tween(PickerFrame, {Size = UDim2.new(0, 180, 0, 170)}, 0.2)
+                    Tween(PickerFrame, {Size = UDim2.new(0, PICKER_W, 0, PICKER_H)}, 0.2)
+                    if PickerConnection then PickerConnection:Disconnect() end
+                    PickerConnection = RunService.RenderStepped:Connect(function()
+                        if Opened and PickerFrame.Visible then
+                            PlacePicker()
+                        end
+                    end)
                 else
-                    Tween(PickerFrame, {Size = UDim2.new(0, 180, 0, 0)}, 0.2)
-                    task.delay(0.2, function() PickerFrame.Visible = false end)
+                    if PickerConnection then
+                        PickerConnection:Disconnect()
+                        PickerConnection = nil
+                    end
+                    Tween(PickerFrame, {Size = UDim2.new(0, PICKER_W, 0, 0)}, 0.2)
+                    task.delay(0.2, function()
+                        if not Opened then
+                            PickerFrame.Visible = false
+                        end
+                    end)
                 end
             end)
             if cfg.Tooltip then AddTooltip(Frame, cfg.Tooltip) end
