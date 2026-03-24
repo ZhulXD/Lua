@@ -1544,7 +1544,7 @@ function Library:Tab(name, icon)
             })
 
             local PickerFrame = Create("Frame", {
-                Parent = ScreenGui,
+                Parent = MainFrame,
                 Size = UDim2.new(0, 180, 0, 0),
                 Position = UDim2.new(0, 0, 0, 0),
                 ZIndex = 200,
@@ -1663,10 +1663,13 @@ function Library:Tab(name, icon)
                 local uiPos = MainFrame.AbsolutePosition
                 local uiSize = MainFrame.AbsoluteSize
 
-                -- Tempel tepat di samping window UI utama (kanan, fallback kiri)
-                local x = uiPos.X + uiSize.X + 8
-                if x + PICKER_W > viewport.X - 8 then
-                    x = uiPos.X - PICKER_W - 8
+                -- Tempel tepat di samping MainFrame (default kiri, fallback kanan)
+                local x = -PICKER_W - 8
+                if uiPos.X + x < 8 then
+                    x = uiSize.X + 8
+                end
+                if uiPos.X + x + PICKER_W > viewport.X - 8 then
+                    x = math.max(8 - uiPos.X, x)
                 end
 
                 -- Stack vertikal di samping UI: picker pertama di atas, berikutnya di bawah
@@ -1675,7 +1678,7 @@ function Library:Tab(name, icon)
                 local y = uiPos.Y + topOffset + ((PickerOrder - 1) * (PICKER_H + stackGap))
                 y = math.clamp(y, 8, math.max(8, viewport.Y - PICKER_H - 8))
 
-                PickerFrame.Position = UDim2.fromOffset(x, y)
+                PickerFrame.Position = UDim2.fromOffset(x, y - uiPos.Y)
             end
 
             Preview.MouseButton1Click:Connect(function()
