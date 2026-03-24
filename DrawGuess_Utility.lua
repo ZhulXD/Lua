@@ -1651,6 +1651,7 @@ function Library:Tab(name, icon)
                     BorderSizePixel = 0
                 }, {
                     Create("UIGradient", {
+                        Rotation = 90,
                         Transparency = NumberSequence.new({
                             NumberSequenceKeypoint.new(0, 1),
                             NumberSequenceKeypoint.new(1, 0)
