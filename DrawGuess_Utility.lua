@@ -766,19 +766,24 @@ if R.word then
                                 if #ln > longest then longest = #ln end
                             end
                             local canvasW = 72
-                            local maxScale = canvasW / (5.5 * longest - 0.5)
-                            local letterScale = math.min(1.8, math.max(0.6, maxScale))
+                            local canvasH = 26
+                            local maxScaleW = canvasW / (5.5 * longest - 0.5)
+                            local maxScaleH = canvasH / (numLines * 8 + (numLines - 1) * 2.5)
+                            local maxScale = math.min(maxScaleW, maxScaleH)
+                            local letterScale = math.min(1.8, math.max(0.5, maxScale))
                             local letterW = 5.5 * letterScale
                             local lineH = 8 * letterScale
                             local gap = letterScale * 2.5
                             local totalH = numLines * lineH + (numLines - 1) * gap
                             -- Gambar tiap baris dari atas ke bawah
                             -- Y canvas: besar = atas, kecil = bawah
+                            local centerY = 37
+                            local firstLineY = centerY + (totalH / 2) - lineH
                             local delay = 0
                             local rainbowCursor = 1
                             for li, ln in ipairs(lines) do
                                 local lw = #ln * letterW - letterScale * 0.5
-                                local sy = 35 + totalH/2 - (li-1) * (lineH + gap) - lineH
+                                local sy = firstLineY - (li - 1) * (lineH + gap)
                                 local lx = -lw / 2
                                 local d  = delay
                                 local rainbowStart = rainbowCursor
