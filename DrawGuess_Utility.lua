@@ -1272,24 +1272,30 @@ function Library:Tab(name, icon)
             end)
 
             local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
-            local uiSize = MainFrame.AbsoluteSize
-            local uiAbsX = (MainFrame.Position.X.Scale * viewport.X) + MainFrame.Position.X.Offset
-            local uiAbsY = (MainFrame.Position.Y.Scale * viewport.Y) + MainFrame.Position.Y.Offset
+            local uiAbsPos = MainFrame.AbsolutePosition
+            local uiAbsX = uiAbsPos.X
+            local uiAbsY = uiAbsPos.Y
+            local uiScale = (UIScale and UIScale.Scale) or 1
+            local pickerWAbs = PICKER_W * uiScale
+            local pickerHAbs = PICKER_H * uiScale
+            local gapAbs = 8
+            local gapLocal = gapAbs / uiScale
+            local mainWidthLocal = MainFrame.AbsoluteSize.X / uiScale
 
             -- Prioritas kiri; jika UI digeser terlalu kiri, pindah ke samping kanan UI
-            local leftAbsX = uiAbsX - PICKER_W - 8
+            local leftAbsX = uiAbsX - pickerWAbs - gapAbs
             local canLeft = leftAbsX >= 8
-            local xLocal = canLeft and (-PICKER_W - 8) or (uiSize.X + 8)
+            local xLocal = canLeft and (-(PICKER_W + gapLocal)) or (mainWidthLocal + gapLocal)
 
             -- Hitung stack sebagai satu blok supaya tidak saling tabrakan saat clamp
-            local stackGap = 8
-            local stackTotal = (#OpenPickers * PICKER_H) + ((#OpenPickers - 1) * stackGap)
+            local stackGapAbs = gapAbs
+            local stackTotal = (#OpenPickers * pickerHAbs) + ((#OpenPickers - 1) * stackGapAbs)
             local startAbsY = uiAbsY + 34
             startAbsY = math.clamp(startAbsY, 8, math.max(8, viewport.Y - 8 - stackTotal))
 
             for idx, pickerMeta in ipairs(OpenPickers) do
-                local yAbs = startAbsY + ((idx - 1) * (PICKER_H + stackGap))
-                pickerMeta.Frame.Position = UDim2.fromOffset(xLocal, yAbs - uiAbsY)
+                local yAbs = startAbsY + ((idx - 1) * (pickerHAbs + stackGapAbs))
+                pickerMeta.Frame.Position = UDim2.fromOffset(xLocal, (yAbs - uiAbsY) / uiScale)
             end
         end
 
