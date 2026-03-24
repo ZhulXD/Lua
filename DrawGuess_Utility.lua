@@ -21,10 +21,23 @@ LocalPlayer.Idled:Connect(function()
 end)
 
 -- KONFIGURASI GITHUB GIST
-local GITHUB_TOKEN = "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"
+local GITHUB_TOKEN = (getgenv and getgenv().DRAWGUESS_GITHUB_TOKEN) or ""
 local GIST_ID      = "72a9ee3b4eae8b659b6d9e12ebfe3e2e"
 local GIST_FILE    = "DrawGuess_Words.txt"
 local WORDS_FILE   = "DrawGuess_Words.txt"
+
+local function buildGithubHeaders(extra)
+    local headers = {
+        ["Accept"] = "application/vnd.github.v3+json"
+    }
+    if type(GITHUB_TOKEN) == "string" and GITHUB_TOKEN ~= "" then
+        headers["Authorization"] = "token " .. GITHUB_TOKEN
+    end
+    for k, v in pairs(extra or {}) do
+        headers[k] = v
+    end
+    return headers
+end
 
 local wordSet       = {}
 local WORDLIST      = {}
@@ -101,10 +114,7 @@ local function uploadToGist()
         -- Step 1: GET konten Gist saat ini
         local res = httpRequest("GET",
             "https://api.github.com/gists/" .. GIST_ID,
-            {
-                ["Authorization"] = "token " .. GITHUB_TOKEN,
-                ["Accept"]        = "application/vnd.github.v3+json",
-            },
+            buildGithubHeaders(),
             nil
         )
 
@@ -137,11 +147,9 @@ local function uploadToGist()
         local body = '{"files":{"' .. GIST_FILE .. '":{"content":"' .. escaped .. '"}}}'
         local res2 = httpRequest("PATCH",
             "https://api.github.com/gists/" .. GIST_ID,
-            {
-                ["Authorization"] = "token " .. GITHUB_TOKEN,
-                ["Content-Type"]  = "application/json",
-                ["Accept"]        = "application/vnd.github.v3+json",
-            },
+            buildGithubHeaders({
+                ["Content-Type"] = "application/json"
+            }),
             body
         )
         if not (res2 and (res2.StatusCode == 200 or res2.StatusCode == 201)) then
@@ -168,10 +176,7 @@ local function loadLearnedWords()
         local ok2, res = pcall(reqFunc, {
             Url     = "https://api.github.com/gists/" .. GIST_ID,
             Method  = "GET",
-            Headers = {
-                ["Authorization"] = "token " .. GITHUB_TOKEN,
-                ["Accept"]        = "application/vnd.github.v3+json",
-            },
+            Headers = buildGithubHeaders(),
         })
 
         if ok2 and res and res.StatusCode == 200 then
