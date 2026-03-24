@@ -1259,6 +1259,68 @@ function Library:Tab(name, icon)
         })
 
         local ItemFuncs = {}
+        local ColorPickerCount = 0
+        local PICKER_W, PICKER_H = 180, 170
+        local OpenPickers = {}
+        local PickerLayoutConn
+
+        local function ReflowOpenPickers()
+            if #OpenPickers == 0 then return end
+
+            table.sort(OpenPickers, function(a, b)
+                return a.Order < b.Order
+            end)
+
+            local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+            local uiSize = MainFrame.AbsoluteSize
+            local uiAbsPos = MainFrame.AbsolutePosition
+            local uiAbsX = uiAbsPos.X
+            local uiAbsY = uiAbsPos.Y
+
+            -- Prioritas kiri; jika UI digeser terlalu kiri, pindah ke samping kanan UI
+            local leftAbsX = uiAbsX - PICKER_W - 8
+            local canLeft = leftAbsX >= 8
+            local xLocal = canLeft and (-PICKER_W - 8) or (uiSize.X + 8)
+
+            -- Hitung stack sebagai satu blok supaya tidak saling tabrakan saat clamp
+            local stackGap = 8
+            local stackTotal = (#OpenPickers * PICKER_H) + ((#OpenPickers - 1) * stackGap)
+            local startAbsY = uiAbsY + 34
+            startAbsY = math.clamp(startAbsY, 8, math.max(8, viewport.Y - 8 - stackTotal))
+
+            for idx, pickerMeta in ipairs(OpenPickers) do
+                local yAbs = startAbsY + ((idx - 1) * (PICKER_H + stackGap))
+                pickerMeta.Frame.Position = UDim2.fromOffset(xLocal, yAbs - uiAbsY)
+            end
+        end
+
+        local function EnsurePickerLayoutLoop()
+            if PickerLayoutConn or #OpenPickers == 0 then return end
+            PickerLayoutConn = RunService.RenderStepped:Connect(function()
+                if #OpenPickers == 0 then
+                    if PickerLayoutConn then
+                        PickerLayoutConn:Disconnect()
+                        PickerLayoutConn = nil
+                    end
+                    return
+                end
+                ReflowOpenPickers()
+            end)
+        end
+
+        local function RemoveOpenPicker(pickerFrame)
+            for i = #OpenPickers, 1, -1 do
+                if OpenPickers[i].Frame == pickerFrame then
+                    table.remove(OpenPickers, i)
+                    break
+                end
+            end
+            ReflowOpenPickers()
+            if #OpenPickers == 0 and PickerLayoutConn then
+                PickerLayoutConn:Disconnect()
+                PickerLayoutConn = nil
+            end
+        end
 
         function ItemFuncs:Toggle(cfg)
             local Enabled = false
@@ -1507,6 +1569,8 @@ function Library:Tab(name, icon)
         function ItemFuncs:ColorPicker(cfg)
             local Color = cfg.Default or Color3.fromRGB(255, 255, 255)
             local Opened = false
+            ColorPickerCount = ColorPickerCount + 1
+            local PickerOrder = ColorPickerCount
             
             local Frame = Create("Frame", {
                 Parent = Content,
@@ -1540,7 +1604,7 @@ function Library:Tab(name, icon)
             })
 
             local PickerFrame = Create("Frame", {
-                Parent = ScreenGui,
+                Parent = MainFrame,
                 Size = UDim2.new(0, 180, 0, 0),
                 Position = UDim2.new(0, 0, 0, 0),
                 ZIndex = 200,
@@ -1604,7 +1668,7 @@ function Library:Tab(name, icon)
                 Create("UICorner", {CornerRadius = UDim.new(0, 2)})
             })
 
-            local H, S, V = 0, 1, 1
+            local H, S, V = Color3.toHSV(Color)
             local DraggingHSV, DraggingHue = false, false
 
             local function UpdateColor()
@@ -1614,6 +1678,7 @@ function Library:Tab(name, icon)
                 Cursor.Position = UDim2.new(S, 0, 1 - V, 0)
                 if cfg.Callback then cfg.Callback(Color) end
             end
+            UpdateColor()
 
             SatValPanel.InputBegan:Connect(function(inp) 
                 if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then 
@@ -1655,22 +1720,22 @@ function Library:Tab(name, icon)
             Preview.MouseButton1Click:Connect(function()
                 Opened = not Opened
                 if Opened then
-                    local absPos = Preview.AbsolutePosition
-                    local absSize = Preview.AbsoluteSize
-                    local scale = UIScale.Scale
-                    -- Posisi di bawah kotak Preview, rata kanan
-                    PickerFrame.Position = UDim2.fromOffset(
-                        absPos.X + absSize.X - 180 * scale,
-                        absPos.Y + absSize.Y + 5
-                    )
                     PickerFrame.Visible = true
                     for _, v in ipairs(PickerFrame:GetDescendants()) do
                         pcall(function() v.ZIndex = 200 end)
                     end
-                    Tween(PickerFrame, {Size = UDim2.new(0, 180, 0, 170)}, 0.2)
+                    Tween(PickerFrame, {Size = UDim2.new(0, PICKER_W, 0, PICKER_H)}, 0.2)
+                    table.insert(OpenPickers, {Frame = PickerFrame, Order = PickerOrder})
+                    ReflowOpenPickers()
+                    EnsurePickerLayoutLoop()
                 else
-                    Tween(PickerFrame, {Size = UDim2.new(0, 180, 0, 0)}, 0.2)
-                    task.delay(0.2, function() PickerFrame.Visible = false end)
+                    RemoveOpenPicker(PickerFrame)
+                    Tween(PickerFrame, {Size = UDim2.new(0, PICKER_W, 0, 0)}, 0.2)
+                    task.delay(0.2, function()
+                        if not Opened then
+                            PickerFrame.Visible = false
+                        end
+                    end)
                 end
             end)
             if cfg.Tooltip then AddTooltip(Frame, cfg.Tooltip) end
