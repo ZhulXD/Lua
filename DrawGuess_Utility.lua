@@ -558,6 +558,7 @@ local autoDrawDone      = false
 local autoPickWord      = false
 local drawColor         = Color3.fromRGB(0, 0, 0)   -- warna huruf
 local shadowColor       = Color3.fromRGB(0, 0, 0)   -- warna shadow
+local shadowEnabled     = true
 local allUnderscoreDone = false
 local sentWords         = {}
 
@@ -749,8 +750,10 @@ if R.word then
                                 local d  = delay
                                 task.delay(d, function()
                                     local shadowOffset = letterScale * 0.35
-                                    autoDraw(ln, lx + shadowOffset, sy - shadowOffset, letterScale, shadowColor, 0.0)
-                                    task.wait(#ln * 0.08)
+                                    if shadowEnabled then
+                                        autoDraw(ln, lx + shadowOffset, sy - shadowOffset, letterScale, shadowColor, 0.0)
+                                        task.wait(#ln * 0.08)
+                                    end
                                     autoDraw(ln, lx, sy, letterScale, clr, 0.1)
                                 end)
                                 delay = delay + #ln * 0.12 + 0.3
@@ -767,8 +770,10 @@ if R.word then
                             local startY = 35 - (8 * letterScale / 2)
                             local shadowOffset = letterScale * 0.35
                             -- Shadow di Layer 1, huruf asli di Layer 2
-                            autoDraw(w, startX + shadowOffset, startY - shadowOffset, letterScale, shadowColor, 0.0)
-                            task.wait(#w * 0.08)
+                            if shadowEnabled then
+                                autoDraw(w, startX + shadowOffset, startY - shadowOffset, letterScale, shadowColor, 0.0)
+                                task.wait(#w * 0.08)
+                            end
                             autoDraw(w, startX, startY, letterScale, clr, 0.1)
                         end
                     end)
@@ -2130,6 +2135,10 @@ CtrlGroup:Toggle({Name = "Auto Guess", Callback = function(v)
 end})
 CtrlGroup:Toggle({Name = "Auto Draw",      Callback = function(v) autoDrawEnabled = v end})
 CtrlGroup:Toggle({Name = "Auto Pick Word", Callback = function(v) autoPickWord    = v end})
+local ShadowToggle = CtrlGroup:Toggle({Name = "Draw Shadow", Callback = function(v)
+    shadowEnabled = v
+end})
+ShadowToggle.Set(true)
 
 local ColorGroup = TabMain:Group("Draw Colors")
 ColorGroup:ColorPicker({Name = "Warna Huruf", Default = Color3.fromRGB(0, 0, 0), Callback = function(c)
