@@ -1267,10 +1267,6 @@ function Library:Tab(name, icon)
         local function ReflowOpenPickers()
             if #OpenPickers == 0 then return end
 
-            table.sort(OpenPickers, function(a, b)
-                return a.Order < b.Order
-            end)
-
             local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
             local uiAbsPos = MainFrame.AbsolutePosition
             local uiAbsX = uiAbsPos.X
@@ -1324,6 +1320,20 @@ function Library:Tab(name, icon)
             if #OpenPickers == 0 and PickerLayoutConn then
                 PickerLayoutConn:Disconnect()
                 PickerLayoutConn = nil
+            end
+        end
+
+        local function InsertOpenPicker(pickerMeta)
+            local inserted = false
+            for i = 1, #OpenPickers do
+                if pickerMeta.Order < OpenPickers[i].Order then
+                    table.insert(OpenPickers, i, pickerMeta)
+                    inserted = true
+                    break
+                end
+            end
+            if not inserted then
+                OpenPickers[#OpenPickers + 1] = pickerMeta
             end
         end
 
@@ -1432,9 +1442,11 @@ function Library:Tab(name, icon)
                 local SizeX = SliderBG.AbsoluteSize.X
                 local PosX = SliderBG.AbsolutePosition.X
                 local InputX = input.Position.X
+                if SizeX <= 0 then return end
                 
                 local Percent = math.clamp((InputX - PosX) / SizeX, 0, 1)
-                Value = math.floor(cfg.Min + (cfg.Max - cfg.Min) * Percent)
+                local range = (cfg.Max - cfg.Min)
+                Value = math.floor(cfg.Min + range * Percent)
                 
                 Fill.Size = UDim2.new(Percent, 0, 1, 0)
                 ValueLabel.Text = Value .. (cfg.Unit or "")
@@ -1460,7 +1472,8 @@ function Library:Tab(name, icon)
                 end
             end)
 
-            local percent = (Value - cfg.Min) / (cfg.Max - cfg.Min)
+            local denom = (cfg.Max - cfg.Min)
+            local percent = (denom == 0) and 0 or ((Value - cfg.Min) / denom)
             Fill.Size = UDim2.new(percent, 0, 1, 0)
             if cfg.Tooltip then AddTooltip(Frame, cfg.Tooltip) end
         end
@@ -1769,7 +1782,7 @@ function Library:Tab(name, icon)
                         pcall(function() v.ZIndex = 200 end)
                     end
                     Tween(PickerFrame, {Size = UDim2.new(0, PICKER_W, 0, PICKER_H)}, 0.2)
-                    table.insert(OpenPickers, {Frame = PickerFrame, Order = PickerOrder})
+                    InsertOpenPicker({Frame = PickerFrame, Order = PickerOrder})
                     ReflowOpenPickers()
                     EnsurePickerLayoutLoop()
                 else
