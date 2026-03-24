@@ -10,6 +10,7 @@ local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService        = game:GetService("RunService")
 local TweenService      = game:GetService("TweenService")
+local HttpService       = game:GetService("HttpService")
 local LocalPlayer       = Players.LocalPlayer
 local PlayerGui         = LocalPlayer:WaitForChild("PlayerGui")
 
@@ -128,10 +129,15 @@ local function uploadToGist()
         end
 
         local existing = ""
-        local raw = res.Body or ""
-        local cm = raw:match('"' .. GIST_FILE .. '".-"content":"(.-[^\\])"')
-        if cm then
-            existing = cm:gsub("\\n","\n"):gsub('\\"','"'):gsub("\\\\","\\")
+        local decoded
+        local okDecode = pcall(function()
+            decoded = HttpService:JSONDecode(res.Body or "{}")
+        end)
+        local files = okDecode and decoded and decoded.files
+        local gistEntry = files and files[GIST_FILE]
+        local gistContent = gistEntry and gistEntry.content
+        if type(gistContent) == "string" then
+            existing = gistContent
             if existing:sub(-1) ~= "\n" then existing = existing .. "\n" end
         else
             -- Tidak bisa parse content — batalkan, jangan overwrite
@@ -180,15 +186,17 @@ local function loadLearnedWords()
         })
 
         if ok2 and res and res.StatusCode == 200 then
-            local raw = res.Body or ""
-            local cm = raw:match('"DrawGuess_Words.txt".-"content":"(.-[^\\])"')
-            if not cm then
-                cm = raw:match('"content"%s*:%s*"(.-[^\\])"')
-            end
-            if cm then
-                local decoded = cm:gsub("\\n","\n"):gsub('\\"','"'):gsub("\\\\","\\")
+            local payload
+            local okJson = pcall(function()
+                payload = HttpService:JSONDecode(res.Body or "{}")
+            end)
+            local files = okJson and payload and payload.files
+            local gistEntry = files and files[GIST_FILE]
+            local gistContent = gistEntry and gistEntry.content
+            if type(gistContent) == "string" then
+                local decodedWords = gistContent
                 local added = 0
-                for line in (decoded .. "\n"):gmatch("([^\n]*)\n") do
+                for line in (decodedWords .. "\n"):gmatch("([^\n]*)\n") do
                     local w = line:lower():match("^%s*(.-)%s*$")
                     if w ~= "" and not wordSet[w] then
                         WORDLIST[#WORDLIST+1] = w
@@ -885,7 +893,6 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
-local HttpService = game:GetService("HttpService")
 
 local Player = Players.LocalPlayer
 local Mouse = Player:GetMouse()
