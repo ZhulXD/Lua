@@ -1631,17 +1631,31 @@ function Library:Tab(name, icon)
                 Text = "",
                 AutoButtonColor = false
             }, {
-                Create("ImageLabel", {
+                -- Overlay putih horizontal: kiri putih -> kanan transparan
+                Create("Frame", {
                     Size = UDim2.new(1, 0, 1, 0),
-                    BackgroundTransparency = 1,
-                    Image = "rbxassetid://4801885019"
+                    BackgroundColor3 = Color3.new(1,1,1),
+                    BorderSizePixel = 0
+                }, {
+                    Create("UIGradient", {
+                        Transparency = NumberSequence.new({
+                            NumberSequenceKeypoint.new(0, 0),
+                            NumberSequenceKeypoint.new(1, 1)
+                        })
+                    })
                 }),
-                Create("ImageLabel", {
+                -- Overlay hitam vertikal: atas transparan -> bawah hitam
+                Create("Frame", {
                     Size = UDim2.new(1, 0, 1, 0),
-                    BackgroundTransparency = 1,
-                    Image = "rbxassetid://4801885019",
-                    ImageColor3 = Color3.new(0,0,0),
-                    Rotation = 90
+                    BackgroundColor3 = Color3.new(0,0,0),
+                    BorderSizePixel = 0
+                }, {
+                    Create("UIGradient", {
+                        Transparency = NumberSequence.new({
+                            NumberSequenceKeypoint.new(0, 1),
+                            NumberSequenceKeypoint.new(1, 0)
+                        })
+                    })
                 })
             })
 
