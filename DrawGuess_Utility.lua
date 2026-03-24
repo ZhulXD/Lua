@@ -1260,6 +1260,68 @@ function Library:Tab(name, icon)
 
         local ItemFuncs = {}
         local ColorPickerCount = 0
+        local PICKER_W, PICKER_H = 180, 170
+        local OpenPickers = {}
+        local PickerLayoutConn
+
+        local function ReflowOpenPickers()
+            if #OpenPickers == 0 then return end
+
+            table.sort(OpenPickers, function(a, b)
+                return a.Order < b.Order
+            end)
+
+            local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+            local uiPos = MainFrame.AbsolutePosition
+            local uiSize = MainFrame.AbsoluteSize
+
+            -- Pilih sisi yang benar-benar di luar UI utama
+            local leftAbsX = uiPos.X - PICKER_W - 8
+            local rightAbsX = uiPos.X + uiSize.X + 8
+            local canLeft = leftAbsX >= 8
+            local canRight = (rightAbsX + PICKER_W) <= (viewport.X - 8)
+            local useLeft = canLeft or not canRight
+            local xLocal = useLeft and (-PICKER_W - 8) or (uiSize.X + 8)
+
+            -- Hitung stack sebagai satu blok supaya tidak saling tabrakan saat clamp
+            local stackGap = 8
+            local stackTotal = (#OpenPickers * PICKER_H) + ((#OpenPickers - 1) * stackGap)
+            local startAbsY = uiPos.Y + 34
+            startAbsY = math.clamp(startAbsY, 8, math.max(8, viewport.Y - 8 - stackTotal))
+
+            for idx, pickerMeta in ipairs(OpenPickers) do
+                local yAbs = startAbsY + ((idx - 1) * (PICKER_H + stackGap))
+                pickerMeta.Frame.Position = UDim2.fromOffset(xLocal, yAbs - uiPos.Y)
+            end
+        end
+
+        local function EnsurePickerLayoutLoop()
+            if PickerLayoutConn or #OpenPickers == 0 then return end
+            PickerLayoutConn = RunService.RenderStepped:Connect(function()
+                if #OpenPickers == 0 then
+                    if PickerLayoutConn then
+                        PickerLayoutConn:Disconnect()
+                        PickerLayoutConn = nil
+                    end
+                    return
+                end
+                ReflowOpenPickers()
+            end)
+        end
+
+        local function RemoveOpenPicker(pickerFrame)
+            for i = #OpenPickers, 1, -1 do
+                if OpenPickers[i].Frame == pickerFrame then
+                    table.remove(OpenPickers, i)
+                    break
+                end
+            end
+            ReflowOpenPickers()
+            if #OpenPickers == 0 and PickerLayoutConn then
+                PickerLayoutConn:Disconnect()
+                PickerLayoutConn = nil
+            end
+        end
 
         function ItemFuncs:Toggle(cfg)
             local Enabled = false
@@ -1510,7 +1572,6 @@ function Library:Tab(name, icon)
             local Opened = false
             ColorPickerCount = ColorPickerCount + 1
             local PickerOrder = ColorPickerCount
-            local PickerConnection
             
             local Frame = Create("Frame", {
                 Parent = Content,
@@ -1684,23 +1745,16 @@ function Library:Tab(name, icon)
             Preview.MouseButton1Click:Connect(function()
                 Opened = not Opened
                 if Opened then
-                    PlacePicker()
                     PickerFrame.Visible = true
                     for _, v in ipairs(PickerFrame:GetDescendants()) do
                         pcall(function() v.ZIndex = 200 end)
                     end
                     Tween(PickerFrame, {Size = UDim2.new(0, PICKER_W, 0, PICKER_H)}, 0.2)
-                    if PickerConnection then PickerConnection:Disconnect() end
-                    PickerConnection = RunService.RenderStepped:Connect(function()
-                        if Opened and PickerFrame.Visible then
-                            PlacePicker()
-                        end
-                    end)
+                    table.insert(OpenPickers, {Frame = PickerFrame, Order = PickerOrder})
+                    ReflowOpenPickers()
+                    EnsurePickerLayoutLoop()
                 else
-                    if PickerConnection then
-                        PickerConnection:Disconnect()
-                        PickerConnection = nil
-                    end
+                    RemoveOpenPicker(PickerFrame)
                     Tween(PickerFrame, {Size = UDim2.new(0, PICKER_W, 0, 0)}, 0.2)
                     task.delay(0.2, function()
                         if not Opened then
