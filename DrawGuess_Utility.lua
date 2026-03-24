@@ -1669,6 +1669,7 @@ function Library:Tab(name, icon)
 
             local H, S, V = Color3.toHSV(Color)
             local DraggingHSV, DraggingHue = false, false
+            local PICKER_W, PICKER_H = 180, 170
 
             local function UpdateColor()
                 Color = Color3.fromHSV(H, S, V)
@@ -1715,6 +1716,29 @@ function Library:Tab(name, icon)
                     end
                 end
             end)
+
+            local function PlacePicker()
+                local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+                local uiPos = MainFrame.AbsolutePosition
+                local uiSize = MainFrame.AbsoluteSize
+
+                -- Tempel tepat di samping MainFrame (default kiri, fallback kanan)
+                local x = -PICKER_W - 8
+                if uiPos.X + x < 8 then
+                    x = uiSize.X + 8
+                end
+                if uiPos.X + x + PICKER_W > viewport.X - 8 then
+                    x = math.max(8 - uiPos.X, x)
+                end
+
+                -- Stack vertikal di samping UI: picker pertama di atas, berikutnya di bawah
+                local topOffset = 34
+                local stackGap = 8
+                local y = uiPos.Y + topOffset + ((PickerOrder - 1) * (PICKER_H + stackGap))
+                y = math.clamp(y, 8, math.max(8, viewport.Y - PICKER_H - 8))
+
+                PickerFrame.Position = UDim2.fromOffset(x, y - uiPos.Y)
+            end
 
             Preview.MouseButton1Click:Connect(function()
                 Opened = not Opened
