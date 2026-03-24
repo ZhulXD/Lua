@@ -21,10 +21,23 @@ LocalPlayer.Idled:Connect(function()
 end)
 
 -- KONFIGURASI GITHUB GIST
-local GITHUB_TOKEN = "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"
+local GITHUB_TOKEN = (getgenv and getgenv().DRAWGUESS_GITHUB_TOKEN) or ""
 local GIST_ID      = "72a9ee3b4eae8b659b6d9e12ebfe3e2e"
 local GIST_FILE    = "DrawGuess_Words.txt"
 local WORDS_FILE   = "DrawGuess_Words.txt"
+
+local function buildGithubHeaders(extra)
+    local headers = {
+        ["Accept"] = "application/vnd.github.v3+json"
+    }
+    if type(GITHUB_TOKEN) == "string" and GITHUB_TOKEN ~= "" then
+        headers["Authorization"] = "token " .. GITHUB_TOKEN
+    end
+    for k, v in pairs(extra or {}) do
+        headers[k] = v
+    end
+    return headers
+end
 
 local wordSet       = {}
 local WORDLIST      = {}
@@ -101,10 +114,7 @@ local function uploadToGist()
         -- Step 1: GET konten Gist saat ini
         local res = httpRequest("GET",
             "https://api.github.com/gists/" .. GIST_ID,
-            {
-                ["Authorization"] = "token " .. GITHUB_TOKEN,
-                ["Accept"]        = "application/vnd.github.v3+json",
-            },
+            buildGithubHeaders(),
             nil
         )
 
@@ -137,11 +147,9 @@ local function uploadToGist()
         local body = '{"files":{"' .. GIST_FILE .. '":{"content":"' .. escaped .. '"}}}'
         local res2 = httpRequest("PATCH",
             "https://api.github.com/gists/" .. GIST_ID,
-            {
-                ["Authorization"] = "token " .. GITHUB_TOKEN,
-                ["Content-Type"]  = "application/json",
-                ["Accept"]        = "application/vnd.github.v3+json",
-            },
+            buildGithubHeaders({
+                ["Content-Type"] = "application/json"
+            }),
             body
         )
         if not (res2 and (res2.StatusCode == 200 or res2.StatusCode == 201)) then
@@ -168,10 +176,7 @@ local function loadLearnedWords()
         local ok2, res = pcall(reqFunc, {
             Url     = "https://api.github.com/gists/" .. GIST_ID,
             Method  = "GET",
-            Headers = {
-                ["Authorization"] = "token " .. GITHUB_TOKEN,
-                ["Accept"]        = "application/vnd.github.v3+json",
-            },
+            Headers = buildGithubHeaders(),
         })
 
         if ok2 and res and res.StatusCode == 200 then
@@ -1259,6 +1264,83 @@ function Library:Tab(name, icon)
         })
 
         local ItemFuncs = {}
+        local ColorPickerCount = 0
+        local PICKER_W, PICKER_H = 180, 170
+        local OpenPickers = {}
+        local PickerLayoutConn
+
+        local function ReflowOpenPickers()
+            if #OpenPickers == 0 then return end
+
+            local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
+            local uiAbsPos = MainFrame.AbsolutePosition
+            local uiAbsX = uiAbsPos.X
+            local uiAbsY = uiAbsPos.Y
+            local uiScale = (UIScale and UIScale.Scale) or 1
+            local pickerWAbs = PICKER_W * uiScale
+            local pickerHAbs = PICKER_H * uiScale
+            local gapAbs = 8
+            local gapLocal = gapAbs / uiScale
+            local mainWidthLocal = MainFrame.AbsoluteSize.X / uiScale
+
+            -- Prioritas kiri; jika UI digeser terlalu kiri, pindah ke samping kanan UI
+            local leftAbsX = uiAbsX - pickerWAbs - gapAbs
+            local canLeft = leftAbsX >= 8
+            local xLocal = canLeft and (-(PICKER_W + gapLocal)) or (mainWidthLocal + gapLocal)
+
+            -- Hitung stack sebagai satu blok supaya tidak saling tabrakan saat clamp
+            local stackGapAbs = gapAbs
+            local stackTotal = (#OpenPickers * pickerHAbs) + ((#OpenPickers - 1) * stackGapAbs)
+            local startAbsY = uiAbsY + 34
+            startAbsY = math.clamp(startAbsY, 8, math.max(8, viewport.Y - 8 - stackTotal))
+
+            for idx, pickerMeta in ipairs(OpenPickers) do
+                local yAbs = startAbsY + ((idx - 1) * (pickerHAbs + stackGapAbs))
+                pickerMeta.Frame.Position = UDim2.fromOffset(xLocal, (yAbs - uiAbsY) / uiScale)
+            end
+        end
+
+        local function EnsurePickerLayoutLoop()
+            if PickerLayoutConn or #OpenPickers == 0 then return end
+            PickerLayoutConn = RunService.RenderStepped:Connect(function()
+                if #OpenPickers == 0 then
+                    if PickerLayoutConn then
+                        PickerLayoutConn:Disconnect()
+                        PickerLayoutConn = nil
+                    end
+                    return
+                end
+                ReflowOpenPickers()
+            end)
+        end
+
+        local function RemoveOpenPicker(pickerFrame)
+            for i = #OpenPickers, 1, -1 do
+                if OpenPickers[i].Frame == pickerFrame then
+                    table.remove(OpenPickers, i)
+                    break
+                end
+            end
+            ReflowOpenPickers()
+            if #OpenPickers == 0 and PickerLayoutConn then
+                PickerLayoutConn:Disconnect()
+                PickerLayoutConn = nil
+            end
+        end
+
+        local function InsertOpenPicker(pickerMeta)
+            local inserted = false
+            for i = 1, #OpenPickers do
+                if pickerMeta.Order < OpenPickers[i].Order then
+                    table.insert(OpenPickers, i, pickerMeta)
+                    inserted = true
+                    break
+                end
+            end
+            if not inserted then
+                OpenPickers[#OpenPickers + 1] = pickerMeta
+            end
+        end
 
         function ItemFuncs:Toggle(cfg)
             local Enabled = false
@@ -1365,9 +1447,11 @@ function Library:Tab(name, icon)
                 local SizeX = SliderBG.AbsoluteSize.X
                 local PosX = SliderBG.AbsolutePosition.X
                 local InputX = input.Position.X
+                if SizeX <= 0 then return end
                 
                 local Percent = math.clamp((InputX - PosX) / SizeX, 0, 1)
-                Value = math.floor(cfg.Min + (cfg.Max - cfg.Min) * Percent)
+                local range = (cfg.Max - cfg.Min)
+                Value = math.floor(cfg.Min + range * Percent)
                 
                 Fill.Size = UDim2.new(Percent, 0, 1, 0)
                 ValueLabel.Text = Value .. (cfg.Unit or "")
@@ -1393,7 +1477,8 @@ function Library:Tab(name, icon)
                 end
             end)
 
-            local percent = (Value - cfg.Min) / (cfg.Max - cfg.Min)
+            local denom = (cfg.Max - cfg.Min)
+            local percent = (denom == 0) and 0 or ((Value - cfg.Min) / denom)
             Fill.Size = UDim2.new(percent, 0, 1, 0)
             if cfg.Tooltip then AddTooltip(Frame, cfg.Tooltip) end
         end
@@ -1507,6 +1592,8 @@ function Library:Tab(name, icon)
         function ItemFuncs:ColorPicker(cfg)
             local Color = cfg.Default or Color3.fromRGB(255, 255, 255)
             local Opened = false
+            ColorPickerCount = ColorPickerCount + 1
+            local PickerOrder = ColorPickerCount
             
             local Frame = Create("Frame", {
                 Parent = Content,
@@ -1540,7 +1627,7 @@ function Library:Tab(name, icon)
             })
 
             local PickerFrame = Create("Frame", {
-                Parent = ScreenGui,
+                Parent = MainFrame,
                 Size = UDim2.new(0, 180, 0, 0),
                 Position = UDim2.new(0, 0, 0, 0),
                 ZIndex = 200,
@@ -1562,17 +1649,32 @@ function Library:Tab(name, icon)
                 Text = "",
                 AutoButtonColor = false
             }, {
-                Create("ImageLabel", {
+                -- Overlay putih horizontal: kiri putih -> kanan transparan
+                Create("Frame", {
                     Size = UDim2.new(1, 0, 1, 0),
-                    BackgroundTransparency = 1,
-                    Image = "rbxassetid://4801885019"
+                    BackgroundColor3 = Color3.new(1,1,1),
+                    BorderSizePixel = 0
+                }, {
+                    Create("UIGradient", {
+                        Transparency = NumberSequence.new({
+                            NumberSequenceKeypoint.new(0, 0),
+                            NumberSequenceKeypoint.new(1, 1)
+                        })
+                    })
                 }),
-                Create("ImageLabel", {
+                -- Overlay hitam vertikal: atas transparan -> bawah hitam
+                Create("Frame", {
                     Size = UDim2.new(1, 0, 1, 0),
-                    BackgroundTransparency = 1,
-                    Image = "rbxassetid://4801885019",
-                    ImageColor3 = Color3.new(0,0,0),
-                    Rotation = 90
+                    BackgroundColor3 = Color3.new(0,0,0),
+                    BorderSizePixel = 0
+                }, {
+                    Create("UIGradient", {
+                        Rotation = 90,
+                        Transparency = NumberSequence.new({
+                            NumberSequenceKeypoint.new(0, 1),
+                            NumberSequenceKeypoint.new(1, 0)
+                        })
+                    })
                 })
             })
 
@@ -1604,7 +1706,7 @@ function Library:Tab(name, icon)
                 Create("UICorner", {CornerRadius = UDim.new(0, 2)})
             })
 
-            local H, S, V = 0, 1, 1
+            local H, S, V = Color3.toHSV(Color)
             local DraggingHSV, DraggingHue = false, false
 
             local function UpdateColor()
@@ -1614,6 +1716,7 @@ function Library:Tab(name, icon)
                 Cursor.Position = UDim2.new(S, 0, 1 - V, 0)
                 if cfg.Callback then cfg.Callback(Color) end
             end
+            UpdateColor()
 
             SatValPanel.InputBegan:Connect(function(inp) 
                 if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then 
@@ -1655,22 +1758,22 @@ function Library:Tab(name, icon)
             Preview.MouseButton1Click:Connect(function()
                 Opened = not Opened
                 if Opened then
-                    local absPos = Preview.AbsolutePosition
-                    local absSize = Preview.AbsoluteSize
-                    local scale = UIScale.Scale
-                    -- Posisi di bawah kotak Preview, rata kanan
-                    PickerFrame.Position = UDim2.fromOffset(
-                        absPos.X + absSize.X - 180 * scale,
-                        absPos.Y + absSize.Y + 5
-                    )
                     PickerFrame.Visible = true
                     for _, v in ipairs(PickerFrame:GetDescendants()) do
                         pcall(function() v.ZIndex = 200 end)
                     end
-                    Tween(PickerFrame, {Size = UDim2.new(0, 180, 0, 170)}, 0.2)
+                    Tween(PickerFrame, {Size = UDim2.new(0, PICKER_W, 0, PICKER_H)}, 0.2)
+                    InsertOpenPicker({Frame = PickerFrame, Order = PickerOrder})
+                    ReflowOpenPickers()
+                    EnsurePickerLayoutLoop()
                 else
-                    Tween(PickerFrame, {Size = UDim2.new(0, 180, 0, 0)}, 0.2)
-                    task.delay(0.2, function() PickerFrame.Visible = false end)
+                    RemoveOpenPicker(PickerFrame)
+                    Tween(PickerFrame, {Size = UDim2.new(0, PICKER_W, 0, 0)}, 0.2)
+                    task.delay(0.2, function()
+                        if not Opened then
+                            PickerFrame.Visible = false
+                        end
+                    end)
                 end
             end)
             if cfg.Tooltip then AddTooltip(Frame, cfg.Tooltip) end
