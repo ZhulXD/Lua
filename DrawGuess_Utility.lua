@@ -462,6 +462,11 @@ local function renderLocalStroke(posX, posY, rotation, length, pixelSize, color,
 end
 
 -- Fungsi untuk menggambar teks di canvas
+local autoGuessEnabled, autoDrawEnabled, autoDrawDone, autoPickWord
+local drawColor, shadowColor, shadowEnabled, rainbowEnabled
+local SHADOW_DRAW_LAYER, TEXT_DRAW_LAYER
+local allUnderscoreDone, sentWords
+
 local function autoDraw(text, startX, startY, letterScale, color, pixLayer, isShadowPass)
     if not R.draw or not R.wayPoint then
         return
@@ -575,18 +580,18 @@ local State = {
     hasGuessed     = false,
     gameActive     = false,
 }
-local autoGuessEnabled  = false
-local autoDrawEnabled   = false
-local autoDrawDone      = false
-local autoPickWord      = false
-local drawColor         = Color3.fromRGB(0, 0, 0)   -- warna huruf
-local shadowColor       = Color3.fromRGB(0, 0, 0)   -- warna shadow
-local shadowEnabled     = true
-local rainbowEnabled    = false
-local SHADOW_DRAW_LAYER = 1
-local TEXT_DRAW_LAYER   = 2
-local allUnderscoreDone = false
-local sentWords         = {}
+autoGuessEnabled  = false
+autoDrawEnabled   = false
+autoDrawDone      = false
+autoPickWord      = false
+drawColor         = Color3.fromRGB(0, 0, 0)   -- warna huruf
+shadowColor       = Color3.fromRGB(0, 0, 0)   -- warna shadow
+shadowEnabled     = true
+rainbowEnabled    = false
+SHADOW_DRAW_LAYER = 1
+TEXT_DRAW_LAYER   = 2
+allUnderscoreDone = false
+sentWords         = {}
 
 -- KIRIM TEBAKAN
 local function sendGuessWord(word)
