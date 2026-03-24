@@ -467,7 +467,7 @@ local drawColor, shadowColor, shadowEnabled, rainbowEnabled
 local SHADOW_DRAW_LAYER, TEXT_DRAW_LAYER
 local allUnderscoreDone, sentWords
 
-local function autoDraw(text, startX, startY, letterScale, color, pixLayer, isShadowPass)
+local function autoDraw(text, startX, startY, letterScale, color, pixLayer, isShadowPass, rainbowStartIndex)
     if not R.draw or not R.wayPoint then
         return
     end
@@ -516,7 +516,8 @@ local function autoDraw(text, startX, startY, letterScale, color, pixLayer, isSh
             local ch = text:sub(ci, ci)
             local strokes = FONT[ch]
             if strokes then
-                local letterColor = rainbowEnabled and getRainbowColor(ci, isShadowPass) or (color or drawColor)
+                local rainbowIndex = (rainbowStartIndex or 1) + ci - 1
+                local letterColor = rainbowEnabled and getRainbowColor(rainbowIndex, isShadowPass) or (color or drawColor)
                 if (not currentBrushColor)
                    or currentBrushColor.R ~= letterColor.R
                    or currentBrushColor.G ~= letterColor.G
@@ -774,19 +775,22 @@ if R.word then
                             -- Gambar tiap baris dari atas ke bawah
                             -- Y canvas: besar = atas, kecil = bawah
                             local delay = 0
+                            local rainbowCursor = 1
                             for li, ln in ipairs(lines) do
                                 local lw = #ln * letterW - letterScale * 0.5
                                 local sy = 35 + totalH/2 - (li-1) * (lineH + gap) - lineH
                                 local lx = -lw / 2
                                 local d  = delay
+                                local rainbowStart = rainbowCursor
                                 task.delay(d, function()
                                     local shadowOffset = letterScale * 0.35
                                     if shadowEnabled then
-                                        autoDraw(ln, lx + shadowOffset, sy - shadowOffset, letterScale, shadowColor, SHADOW_DRAW_LAYER, true)
+                                        autoDraw(ln, lx + shadowOffset, sy - shadowOffset, letterScale, shadowColor, SHADOW_DRAW_LAYER, true, rainbowStart)
                                         task.wait(#ln * 0.08)
                                     end
-                                    autoDraw(ln, lx, sy, letterScale, clr, TEXT_DRAW_LAYER, false)
+                                    autoDraw(ln, lx, sy, letterScale, clr, TEXT_DRAW_LAYER, false, rainbowStart)
                                 end)
+                                rainbowCursor = rainbowCursor + #ln + 1
                                 delay = delay + #ln * 0.12 + 0.3
                             end
                         else
@@ -802,10 +806,10 @@ if R.word then
                             local shadowOffset = letterScale * 0.35
                             -- Shadow di Layer 1, huruf asli di Layer 2
                             if shadowEnabled then
-                                autoDraw(w, startX + shadowOffset, startY - shadowOffset, letterScale, shadowColor, SHADOW_DRAW_LAYER, true)
+                                autoDraw(w, startX + shadowOffset, startY - shadowOffset, letterScale, shadowColor, SHADOW_DRAW_LAYER, true, 1)
                                 task.wait(#w * 0.08)
                             end
-                            autoDraw(w, startX, startY, letterScale, clr, TEXT_DRAW_LAYER, false)
+                            autoDraw(w, startX, startY, letterScale, clr, TEXT_DRAW_LAYER, false, 1)
                         end
                     end)
                 end
