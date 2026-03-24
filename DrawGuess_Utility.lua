@@ -1659,8 +1659,6 @@ function Library:Tab(name, icon)
             end)
 
             local function PlacePicker()
-                local absPos = Preview.AbsolutePosition
-                local absSize = Preview.AbsoluteSize
                 local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
                 local uiPos = MainFrame.AbsolutePosition
                 local uiSize = MainFrame.AbsoluteSize
@@ -1671,13 +1669,10 @@ function Library:Tab(name, icon)
                     x = uiPos.X - PICKER_W - 8
                 end
 
-                -- Susun agar tidak tabrakan: picker ganjil di atas, genap di bawah
-                local y
-                if PickerOrder % 2 == 1 then
-                    y = absPos.Y - PICKER_H - 6
-                else
-                    y = absPos.Y + absSize.Y + 6
-                end
+                -- Stack vertikal di samping UI: picker pertama di atas, berikutnya di bawah
+                local topOffset = 34
+                local stackGap = 8
+                local y = uiPos.Y + topOffset + ((PickerOrder - 1) * (PICKER_H + stackGap))
                 y = math.clamp(y, 8, math.max(8, viewport.Y - PICKER_H - 8))
 
                 PickerFrame.Position = UDim2.fromOffset(x, y)
