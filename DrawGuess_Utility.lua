@@ -433,7 +433,7 @@ end
 local function renderLocalStroke(posX, posY, rotation, length, pixelSize, color, surfZ)
     if length <= 0 then return end
 
-    local surfaceZ = getSurfaceZ()
+    local surfaceZ = surfZ or getSurfaceZ()
     local partThickness = 0.1
 
     local ok = pcall(function()
@@ -491,8 +491,14 @@ local function autoDraw(text, startX, startY, letterScale, color, pixLayer)
             return Vector3.new(x, y, z)
         end
 
-        -- Cache surfaceZ sekali di awal
+        -- Cache surfaceZ sekali di awal + offset layer lokal agar tidak saling tumpuk
         local surfaceZ = getSurfaceZ()
+        local layerOffset = 0
+        if type(pixLayer) == "number" then
+            local layerIndex = math.clamp(math.floor(pixLayer + 0.5), 1, 4)
+            layerOffset = (layerIndex - 1) * 0.035
+        end
+        local layeredSurfaceZ = surfaceZ + layerOffset
 
         -- Gambar huruf
         for ci = 1, #text do
@@ -526,7 +532,7 @@ local function autoDraw(text, startX, startY, letterScale, color, pixLayer)
                                 R.draw:FireServer(makeVec(mx, my, angle), len)
                             end)
                             renderLocalStroke(mx, my, angle, len, 1.4,
-                                color or Color3.fromRGB(0,0,0), surfaceZ)
+                                color or Color3.fromRGB(0,0,0), layeredSurfaceZ)
                             task.wait(0.02)
                             prevX, prevY = nx, ny
                         end
@@ -559,6 +565,8 @@ local autoPickWord      = false
 local drawColor         = Color3.fromRGB(0, 0, 0)   -- warna huruf
 local shadowColor       = Color3.fromRGB(0, 0, 0)   -- warna shadow
 local shadowEnabled     = true
+local SHADOW_DRAW_LAYER = 1
+local TEXT_DRAW_LAYER   = 2
 local allUnderscoreDone = false
 local sentWords         = {}
 
@@ -751,10 +759,10 @@ if R.word then
                                 task.delay(d, function()
                                     local shadowOffset = letterScale * 0.35
                                     if shadowEnabled then
-                                        autoDraw(ln, lx + shadowOffset, sy - shadowOffset, letterScale, shadowColor, 0.0)
+                                        autoDraw(ln, lx + shadowOffset, sy - shadowOffset, letterScale, shadowColor, SHADOW_DRAW_LAYER)
                                         task.wait(#ln * 0.08)
                                     end
-                                    autoDraw(ln, lx, sy, letterScale, clr, 0.1)
+                                    autoDraw(ln, lx, sy, letterScale, clr, TEXT_DRAW_LAYER)
                                 end)
                                 delay = delay + #ln * 0.12 + 0.3
                             end
@@ -771,10 +779,10 @@ if R.word then
                             local shadowOffset = letterScale * 0.35
                             -- Shadow di Layer 1, huruf asli di Layer 2
                             if shadowEnabled then
-                                autoDraw(w, startX + shadowOffset, startY - shadowOffset, letterScale, shadowColor, 0.0)
+                                autoDraw(w, startX + shadowOffset, startY - shadowOffset, letterScale, shadowColor, SHADOW_DRAW_LAYER)
                                 task.wait(#w * 0.08)
                             end
-                            autoDraw(w, startX, startY, letterScale, clr, 0.1)
+                            autoDraw(w, startX, startY, letterScale, clr, TEXT_DRAW_LAYER)
                         end
                     end)
                 end
