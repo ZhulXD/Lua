@@ -1319,7 +1319,127 @@ function Library:Tab(name, icon)
             Create("UIPadding", {PaddingTop = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)})
         })
 
-        local ItemFuncs = {}
+
+local function createColorPickerRow(cfg, Content, CFG, Color)
+    local Frame = Create("Frame", {
+        Parent = Content,
+        Size = UDim2.new(1, 0, 0, 20),
+        BackgroundTransparency = 1,
+        ZIndex = 15
+    })
+
+    Create("TextLabel", {
+        Parent = Frame,
+        Text = cfg.Name,
+        TextColor3 = CFG.TextDark,
+        TextSize = 11,
+        Font = CFG.Font,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0.6, 0, 1, 0),
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+
+    local Preview = Create("TextButton", {
+        Parent = Frame,
+        Size = UDim2.new(0, 30, 0, 14),
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, 0, 0.5, 0),
+        BackgroundColor3 = Color,
+        Text = "",
+        AutoButtonColor = false
+    }, {
+        Create("UIStroke", {Color = CFG.StrokeColor}),
+        Create("UICorner", {CornerRadius = UDim.new(0, 3)})
+    })
+
+    return Frame, Preview
+end
+
+local function createColorPickerPopup(MainFrame, CFG)
+    local PickerFrame = Create("Frame", {
+        Parent = MainFrame,
+        Size = UDim2.new(0, 180, 0, 0),
+        Position = UDim2.new(0, 0, 0, 0),
+        ZIndex = 200,
+        AnchorPoint = Vector2.new(0, 0),
+        BackgroundColor3 = CFG.MainColor,
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+        Visible = false
+    }, {
+        Create("UIStroke", {Color = CFG.StrokeColor}),
+        Create("UICorner", {CornerRadius = UDim.new(0, 3)})
+    })
+
+    local SatValPanel = Create("TextButton", {
+        Parent = PickerFrame,
+        Size = UDim2.new(1, -20, 0, 100),
+        Position = UDim2.new(0, 10, 0, 10),
+        BackgroundColor3 = Color3.fromHSV(0, 1, 1),
+        Text = "",
+        AutoButtonColor = false
+    }, {
+        -- Overlay putih horizontal: kiri putih -> kanan transparan
+        Create("Frame", {
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundColor3 = Color3.new(1,1,1),
+            BorderSizePixel = 0
+        }, {
+            Create("UIGradient", {
+                Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 0),
+                    NumberSequenceKeypoint.new(1, 1)
+                })
+            })
+        }),
+        -- Overlay hitam vertikal: atas transparan -> bawah hitam
+        Create("Frame", {
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundColor3 = Color3.new(0,0,0),
+            BorderSizePixel = 0
+        }, {
+            Create("UIGradient", {
+                Rotation = 90,
+                Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 1),
+                    NumberSequenceKeypoint.new(1, 0)
+                })
+            })
+        })
+    })
+
+    local Cursor = Create("Frame", {
+        Parent = SatValPanel,
+        Size = UDim2.new(0, 4, 0, 4),
+        BackgroundColor3 = Color3.new(1,1,1),
+        AnchorPoint = Vector2.new(0.5, 0.5)
+    }, {Create("UICorner", {CornerRadius = UDim.new(1, 0)})})
+
+    local HueSlider = Create("TextButton", {
+        Parent = PickerFrame,
+        Size = UDim2.new(1, -20, 0, 10),
+        Position = UDim2.new(0, 10, 0, 120),
+        Text = "",
+        AutoButtonColor = false
+    }, {
+        Create("UIGradient", {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromHSV(0,1,1)),
+                ColorSequenceKeypoint.new(0.17, Color3.fromHSV(0.17,1,1)),
+                ColorSequenceKeypoint.new(0.33, Color3.fromHSV(0.33,1,1)),
+                ColorSequenceKeypoint.new(0.5, Color3.fromHSV(0.5,1,1)),
+                ColorSequenceKeypoint.new(0.67, Color3.fromHSV(0.67,1,1)),
+                ColorSequenceKeypoint.new(0.83, Color3.fromHSV(0.83,1,1)),
+                ColorSequenceKeypoint.new(1, Color3.fromHSV(1,1,1))
+            })
+        }),
+        Create("UICorner", {CornerRadius = UDim.new(0, 2)})
+    })
+
+    return PickerFrame, SatValPanel, Cursor, HueSlider
+end
+
+local ItemFuncs = {}
         local ColorPickerCount = 0
         local PICKER_W, PICKER_H = 180, 170
         local OpenPickers = {}
@@ -1651,116 +1771,8 @@ function Library:Tab(name, icon)
             ColorPickerCount = ColorPickerCount + 1
             local PickerOrder = ColorPickerCount
             
-            local Frame = Create("Frame", {
-                Parent = Content,
-                Size = UDim2.new(1, 0, 0, 20),
-                BackgroundTransparency = 1,
-                ZIndex = 15
-            })
-            
-            Create("TextLabel", {
-                Parent = Frame,
-                Text = cfg.Name,
-                TextColor3 = CFG.TextDark,
-                TextSize = 11,
-                Font = CFG.Font,
-                BackgroundTransparency = 1,
-                Size = UDim2.new(0.6, 0, 1, 0),
-                TextXAlignment = Enum.TextXAlignment.Left
-            })
-
-            local Preview = Create("TextButton", {
-                Parent = Frame,
-                Size = UDim2.new(0, 30, 0, 14),
-                AnchorPoint = Vector2.new(1, 0.5),
-                Position = UDim2.new(1, 0, 0.5, 0),
-                BackgroundColor3 = Color,
-                Text = "",
-                AutoButtonColor = false
-            }, {
-                Create("UIStroke", {Color = CFG.StrokeColor}),
-                Create("UICorner", {CornerRadius = UDim.new(0, 3)})
-            })
-
-            local PickerFrame = Create("Frame", {
-                Parent = MainFrame,
-                Size = UDim2.new(0, 180, 0, 0),
-                Position = UDim2.new(0, 0, 0, 0),
-                ZIndex = 200,
-                AnchorPoint = Vector2.new(0, 0),
-                BackgroundColor3 = CFG.MainColor,
-                BorderSizePixel = 0,
-                ClipsDescendants = true,
-                Visible = false
-            }, {
-                Create("UIStroke", {Color = CFG.StrokeColor}),
-                Create("UICorner", {CornerRadius = UDim.new(0, 3)})
-            })
-
-            local SatValPanel = Create("TextButton", {
-                Parent = PickerFrame,
-                Size = UDim2.new(1, -20, 0, 100),
-                Position = UDim2.new(0, 10, 0, 10),
-                BackgroundColor3 = Color3.fromHSV(0, 1, 1),
-                Text = "",
-                AutoButtonColor = false
-            }, {
-                -- Overlay putih horizontal: kiri putih -> kanan transparan
-                Create("Frame", {
-                    Size = UDim2.new(1, 0, 1, 0),
-                    BackgroundColor3 = Color3.new(1,1,1),
-                    BorderSizePixel = 0
-                }, {
-                    Create("UIGradient", {
-                        Transparency = NumberSequence.new({
-                            NumberSequenceKeypoint.new(0, 0),
-                            NumberSequenceKeypoint.new(1, 1)
-                        })
-                    })
-                }),
-                -- Overlay hitam vertikal: atas transparan -> bawah hitam
-                Create("Frame", {
-                    Size = UDim2.new(1, 0, 1, 0),
-                    BackgroundColor3 = Color3.new(0,0,0),
-                    BorderSizePixel = 0
-                }, {
-                    Create("UIGradient", {
-                        Rotation = 90,
-                        Transparency = NumberSequence.new({
-                            NumberSequenceKeypoint.new(0, 1),
-                            NumberSequenceKeypoint.new(1, 0)
-                        })
-                    })
-                })
-            })
-
-            local Cursor = Create("Frame", {
-                Parent = SatValPanel,
-                Size = UDim2.new(0, 4, 0, 4),
-                BackgroundColor3 = Color3.new(1,1,1),
-                AnchorPoint = Vector2.new(0.5, 0.5)
-            }, {Create("UICorner", {CornerRadius = UDim.new(1, 0)})})
-
-            local HueSlider = Create("TextButton", {
-                Parent = PickerFrame,
-                Size = UDim2.new(1, -20, 0, 10),
-                Position = UDim2.new(0, 10, 0, 120),
-                Text = "",
-                AutoButtonColor = false
-            }, {
-                Create("UIGradient", {
-                    Color = ColorSequence.new({
-                        ColorSequenceKeypoint.new(0, Color3.fromHSV(0,1,1)),
-                        ColorSequenceKeypoint.new(0.17, Color3.fromHSV(0.17,1,1)),
-                        ColorSequenceKeypoint.new(0.33, Color3.fromHSV(0.33,1,1)),
-                        ColorSequenceKeypoint.new(0.5, Color3.fromHSV(0.5,1,1)),
-                        ColorSequenceKeypoint.new(0.67, Color3.fromHSV(0.67,1,1)),
-                        ColorSequenceKeypoint.new(0.83, Color3.fromHSV(0.83,1,1)),
-                        ColorSequenceKeypoint.new(1, Color3.fromHSV(1,1,1))
-                    })
-                }),
-                Create("UICorner", {CornerRadius = UDim.new(0, 2)})
-            })
+            local Frame, Preview = createColorPickerRow(cfg, Content, CFG, Color)
+            local PickerFrame, SatValPanel, Cursor, HueSlider = createColorPickerPopup(MainFrame, CFG)
 
             local H, S, V = Color3.toHSV(Color)
             local DraggingHSV, DraggingHue = false, false
