@@ -385,8 +385,11 @@ local FONT = {
 local canvasRef = nil
 local function getCanvas()
     if canvasRef and canvasRef.Parent then return canvasRef end
+
+    local descendants = workspace:GetDescendants()
+
     -- Strategi 1: cari Part bernama "canvas" atau "Canvas"
-    for _, obj in ipairs(workspace:GetDescendants()) do
+    for _, obj in ipairs(descendants) do
         if obj:IsA("Part") then
             local name = obj.Name:lower()
             if name == "canvas" or name:find("canvas") then
@@ -396,7 +399,7 @@ local function getCanvas()
         end
     end
     -- Strategi 2: cari Part dengan Z sekitar -130 sampai -160 (area canvas)
-    for _, obj in ipairs(workspace:GetDescendants()) do
+    for _, obj in ipairs(descendants) do
         if obj:IsA("Part") and obj.Size.X > 5 and obj.Size.Y > 5 then
             local z = obj.Position.Z
             if z < -100 and z > -200 then
