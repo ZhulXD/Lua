@@ -2114,7 +2114,7 @@ local profileName = Create("TextLabel", {
 -- Load thumbnail async
 task.spawn(function()
     local ok, id = pcall(function()
-        return game:GetService("Players"):GetUserThumbnailAsync(
+        return Players:GetUserThumbnailAsync(
             LocalPlayer.UserId,
             Enum.ThumbnailType.HeadShot,
             Enum.ThumbnailSize.Size48x48
