@@ -594,6 +594,15 @@ TEXT_DRAW_LAYER   = 2
 allUnderscoreDone = false
 sentWords         = {}
 
+local function resetGameState()
+    State.hasGuessed     = false
+    State.currentHint    = nil
+    State.matchedWord    = nil
+    State.allCandidates  = {}
+    State.candidateIndex = 1
+    sentWords            = {}
+end
+
 -- KIRIM TEBAKAN
 local function sendGuessWord(word)
     if not word or word == "" then return false end
@@ -663,25 +672,15 @@ if R.gameEnd then
         end
         State.gameActive     = false
         State.isMyTurn       = false
-        State.hasGuessed     = false
-        State.currentHint    = nil
-        State.matchedWord    = nil
-        State.allCandidates  = {}
-        State.candidateIndex = 1
-        sentWords            = {}
+        resetGameState()
     end)
 end
 
 if R.gameStart then
     R.gameStart.OnClientEvent:Connect(function(drawer, tick, dur, hint)
         State.gameActive     = true
-        State.hasGuessed     = false
-        State.currentHint    = nil
-        State.matchedWord    = nil
-        State.allCandidates  = {}
-        State.candidateIndex = 1
+        resetGameState()
         allUnderscoreDone    = false
-        sentWords            = {}
         autoDrawDone         = false
 
         if drawer then
