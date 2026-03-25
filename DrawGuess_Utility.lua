@@ -113,6 +113,11 @@ local function uploadToGist()
     local toUpload = pendingWords
     pendingWords = {}
     task.spawn(function()
+        local function revertPendingWords()
+            for _, w in ipairs(toUpload) do
+                pendingWords[#pendingWords+1] = w
+            end
+        end
         -- Step 1: GET konten Gist saat ini
         local res = httpRequest("GET",
             "https://api.github.com/gists/" .. GIST_ID,
@@ -123,9 +128,7 @@ local function uploadToGist()
         -- PENTING: Jika GET gagal, batalkan upload
         -- Jangan kirim PATCH dengan existing="" karena akan hapus semua kata
         if not res or res.StatusCode ~= 200 then
-            for _, w in ipairs(toUpload) do
-                pendingWords[#pendingWords+1] = w
-            end
+            revertPendingWords()
             return
         end
 
@@ -142,9 +145,7 @@ local function uploadToGist()
             if existing:sub(-1) ~= "\n" then existing = existing .. "\n" end
         else
             -- Tidak bisa parse content — batalkan, jangan overwrite
-            for _, w in ipairs(toUpload) do
-                pendingWords[#pendingWords+1] = w
-            end
+            revertPendingWords()
             return
         end
 
@@ -160,9 +161,7 @@ local function uploadToGist()
             body
         )
         if not (res2 and (res2.StatusCode == 200 or res2.StatusCode == 201)) then
-            for _, w in ipairs(toUpload) do
-                pendingWords[#pendingWords+1] = w
-            end
+            revertPendingWords()
         end
     end)
 end
