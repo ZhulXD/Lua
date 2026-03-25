@@ -541,7 +541,7 @@ local function autoDraw(text, startX, startY, letterScale, color, pixLayer, isSh
                         pcall(function()
                             R.draw:FireServer(makeVec(wx, wy, 0), 0)
                         end)
-                        task.wait(0.02)
+                        task.wait()
 
                         local prevX, prevY = wx, wy
                         for pi = 2, #stroke do
@@ -560,7 +560,9 @@ local function autoDraw(text, startX, startY, letterScale, color, pixLayer, isSh
                             end)
                             renderLocalStroke(mx, my, angle, len, 1.4,
                                 letterColor or Color3.fromRGB(0,0,0), layeredSurfaceZ)
-                            task.wait(0.02)
+                            if pi % 4 == 0 then
+                                task.wait()
+                            end
                             prevX, prevY = nx, ny
                         end
                         R.wayPoint:FireServer()
