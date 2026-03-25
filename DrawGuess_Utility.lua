@@ -631,6 +631,15 @@ local function stopAutoGuessLoop()
     end
 end
 
+local function startAutoGuessThread()
+    autoGuessThread = task.spawn(function()
+        for _, word in ipairs(State.allCandidates) do
+            if not State.gameActive or State.hasGuessed or State.isMyTurn then break end
+            sendNew(word)
+        end
+    end)
+end
+
 local function startAutoGuessLoop()
     stopAutoGuessLoop()
     if not autoGuessEnabled then return end
@@ -656,12 +665,7 @@ local function startAutoGuessLoop()
             allUnderscoreDone = true
         end)
     else
-        autoGuessThread = task.spawn(function()
-            for _, word in ipairs(State.allCandidates) do
-                if not State.gameActive or State.hasGuessed or State.isMyTurn then break end
-                sendNew(word)
-            end
-        end)
+        startAutoGuessThread()
     end
 end
 
@@ -842,12 +846,7 @@ if R.word then
 
         if #State.allCandidates == 0 then return end
 
-        autoGuessThread = task.spawn(function()
-            for _, word in ipairs(State.allCandidates) do
-                if not State.gameActive or State.hasGuessed or State.isMyTurn then break end
-                sendNew(word)
-            end
-        end)
+        startAutoGuessThread()
     end)
 end
 
