@@ -2056,7 +2056,7 @@ MobileToggle.InputChanged:Connect(function(input)
     end
 end)
 
-game:GetService("UserInputService").InputChanged:Connect(function(input)
+UserInputService.InputChanged:Connect(function(input)
     if input == mtDragInput and mtDragging then
         local delta = input.Position - mtDragStart
         MobileToggle.Position = UDim2.new(
@@ -2114,7 +2114,7 @@ local profileName = Create("TextLabel", {
 -- Load thumbnail async
 task.spawn(function()
     local ok, id = pcall(function()
-        return game:GetService("Players"):GetUserThumbnailAsync(
+        return Players:GetUserThumbnailAsync(
             LocalPlayer.UserId,
             Enum.ThumbnailType.HeadShot,
             Enum.ThumbnailSize.Size48x48
