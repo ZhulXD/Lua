@@ -23,7 +23,7 @@ end)
 
 -- KONFIGURASI GITHUB GIST
 local GITHUB_TOKEN = (getgenv and getgenv().DRAWGUESS_GITHUB_TOKEN) or ""
-local GIST_ID      = "72a9ee3b4eae8b659b6d9e12ebfe3e2e"
+local GIST_ID      = (getgenv and getgenv().DRAWGUESS_GIST_ID) or ""
 local GIST_FILE    = "DrawGuess_Words.txt"
 local WORDS_FILE   = "DrawGuess_Words.txt"
 
@@ -109,6 +109,7 @@ end
 -- Upload ke GitHub Gist — hanya append kata baru
 local function uploadToGist()
     if #pendingWords == 0 then return end
+    if not GIST_ID or GIST_ID == "" then return end
     local toUpload = pendingWords
     pendingWords = {}
     task.spawn(function()
@@ -176,6 +177,7 @@ local function loadLearnedWords()
     rebuildLengthIndex()
 
     task.spawn(function()
+        if not GIST_ID or GIST_ID == "" then wordlistReady = true; return end
         local reqFunc = request or (syn and syn.request) or http_request or (http and http.request)
         if not reqFunc then wordlistReady = true; return end
 
