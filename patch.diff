@@ -1,0 +1,49 @@
+--- DrawGuess_Utility.lua
++++ DrawGuess_Utility.lua
+@@ -113,6 +113,12 @@
+     if not GIST_ID or GIST_ID == "" then return end
+     local toUpload = pendingWords
+     pendingWords = {}
++
++    local function revertPendingWords()
++        for _, w in ipairs(toUpload) do
++            pendingWords[#pendingWords+1] = w
++        end
++    end
++
+     task.spawn(function()
+         -- Step 1: GET konten Gist saat ini
+         local res = httpRequest("GET",
+@@ -123,9 +129,7 @@
+         -- PENTING: Jika GET gagal, batalkan upload
+         -- Jangan kirim PATCH dengan existing="" karena akan hapus semua kata
+         if not res or res.StatusCode ~= 200 then
+-            for _, w in ipairs(toUpload) do
+-                pendingWords[#pendingWords+1] = w
+-            end
++            revertPendingWords()
+             return
+         end
+
+@@ -142,9 +146,7 @@
+             if existing:sub(-1) ~= "\n" then existing = existing .. "\n" end
+         else
+             -- Tidak bisa parse content — batalkan, jangan overwrite
+-            for _, w in ipairs(toUpload) do
+-                pendingWords[#pendingWords+1] = w
+-            end
++            revertPendingWords()
+             return
+         end
+
+@@ -160,9 +162,7 @@
+             body
+         )
+         if not (res2 and (res2.StatusCode == 200 or res2.StatusCode == 201)) then
+-            for _, w in ipairs(toUpload) do
+-                pendingWords[#pendingWords+1] = w
+-            end
++            revertPendingWords()
+         end
+     end)
+ end
