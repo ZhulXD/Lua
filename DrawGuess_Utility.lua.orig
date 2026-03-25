@@ -541,7 +541,7 @@ local function autoDraw(text, startX, startY, letterScale, color, pixLayer, isSh
                         pcall(function()
                             R.draw:FireServer(makeVec(wx, wy, 0), 0)
                         end)
-                        task.wait()
+                        task.wait(0.02)
 
                         local prevX, prevY = wx, wy
                         for pi = 2, #stroke do
@@ -560,9 +560,7 @@ local function autoDraw(text, startX, startY, letterScale, color, pixLayer, isSh
                             end)
                             renderLocalStroke(mx, my, angle, len, 1.4,
                                 letterColor or Color3.fromRGB(0,0,0), layeredSurfaceZ)
-                            if pi % 4 == 0 then
-                                task.wait()
-                            end
+                            task.wait(0.02)
                             prevX, prevY = nx, ny
                         end
                         R.wayPoint:FireServer()
@@ -699,7 +697,7 @@ if R.gameStart then
         end
 
         -- Auto draw dihandle di word.OnClientEvent saat isMyTurn=true
-     
+
         if type(hint) == "string" and hint ~= "" then
             State.currentHint = hint
             local best, candidates = matchHint(hint)
@@ -753,7 +751,7 @@ if R.word then
                         if w:find(" ") then
                             -- Pecah jadi kata-kata
                             local parts = {}
-                            for _, part in ipairs(w:split(" ")) do
+                            for part in (w .. " "):gmatch("([^ ]*) ") do
                                 if part ~= "" then parts[#parts+1] = part end
                             end
                             -- Tentukan jumlah baris: 1 kata = 1 baris, 2 = 2 baris, 3+ = 3 baris (maks)
@@ -1019,8 +1017,8 @@ local UIListNotif = Create("UIListLayout", {
 })
 
 function Library:Notify(msg, type)
-    local color = (type == "success" and Color3.fromRGB(100, 255, 100)) or 
-                  (type == "warning" and Color3.fromRGB(255, 100, 100)) or 
+    local color = (type == "success" and Color3.fromRGB(100, 255, 100)) or
+                  (type == "warning" and Color3.fromRGB(255, 100, 100)) or
                   CFG.AccentColor
 
     local Frame = Create("Frame", {
@@ -1048,7 +1046,7 @@ function Library:Notify(msg, type)
     })
 
     Tween(Frame, {Size = UDim2.new(0, 250, 0, 35)}, 0.5, Enum.EasingStyle.Back)
-    
+
     task.delay(3, function()
         Tween(Frame, {Size = UDim2.new(0, 250, 0, 0), BackgroundTransparency = 1}, 0.5)
         task.wait(0.5)
@@ -1108,7 +1106,7 @@ MainFrame.InputBegan:Connect(function(input)
         Dragging = true
         DragStart = input.Position
         StartPos = MainFrame.Position
-        
+
         input.Changed:Connect(function()
             if input.UserInputState == Enum.UserInputState.End then
                 Dragging = false
@@ -1230,7 +1228,7 @@ function Library:Tab(name, icon)
 
     PageFrame:ClearAllChildren()
     local Padding = Create("UIPadding", {Parent = PageFrame, PaddingTop = UDim.new(0, 8), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10), PaddingBottom = UDim.new(0, 8)})
-    
+
     local LeftCol = Create("Frame", {Parent = PageFrame, Size = UDim2.new(0.48, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1}, {
         Create("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder})
     })
@@ -1319,127 +1317,7 @@ function Library:Tab(name, icon)
             Create("UIPadding", {PaddingTop = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)})
         })
 
-
-local function createColorPickerRow(cfg, Content, CFG, Color)
-    local Frame = Create("Frame", {
-        Parent = Content,
-        Size = UDim2.new(1, 0, 0, 20),
-        BackgroundTransparency = 1,
-        ZIndex = 15
-    })
-
-    Create("TextLabel", {
-        Parent = Frame,
-        Text = cfg.Name,
-        TextColor3 = CFG.TextDark,
-        TextSize = 11,
-        Font = CFG.Font,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(0.6, 0, 1, 0),
-        TextXAlignment = Enum.TextXAlignment.Left
-    })
-
-    local Preview = Create("TextButton", {
-        Parent = Frame,
-        Size = UDim2.new(0, 30, 0, 14),
-        AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(1, 0, 0.5, 0),
-        BackgroundColor3 = Color,
-        Text = "",
-        AutoButtonColor = false
-    }, {
-        Create("UIStroke", {Color = CFG.StrokeColor}),
-        Create("UICorner", {CornerRadius = UDim.new(0, 3)})
-    })
-
-    return Frame, Preview
-end
-
-local function createColorPickerPopup(MainFrame, CFG)
-    local PickerFrame = Create("Frame", {
-        Parent = MainFrame,
-        Size = UDim2.new(0, 180, 0, 0),
-        Position = UDim2.new(0, 0, 0, 0),
-        ZIndex = 200,
-        AnchorPoint = Vector2.new(0, 0),
-        BackgroundColor3 = CFG.MainColor,
-        BorderSizePixel = 0,
-        ClipsDescendants = true,
-        Visible = false
-    }, {
-        Create("UIStroke", {Color = CFG.StrokeColor}),
-        Create("UICorner", {CornerRadius = UDim.new(0, 3)})
-    })
-
-    local SatValPanel = Create("TextButton", {
-        Parent = PickerFrame,
-        Size = UDim2.new(1, -20, 0, 100),
-        Position = UDim2.new(0, 10, 0, 10),
-        BackgroundColor3 = Color3.fromHSV(0, 1, 1),
-        Text = "",
-        AutoButtonColor = false
-    }, {
-        -- Overlay putih horizontal: kiri putih -> kanan transparan
-        Create("Frame", {
-            Size = UDim2.new(1, 0, 1, 0),
-            BackgroundColor3 = Color3.new(1,1,1),
-            BorderSizePixel = 0
-        }, {
-            Create("UIGradient", {
-                Transparency = NumberSequence.new({
-                    NumberSequenceKeypoint.new(0, 0),
-                    NumberSequenceKeypoint.new(1, 1)
-                })
-            })
-        }),
-        -- Overlay hitam vertikal: atas transparan -> bawah hitam
-        Create("Frame", {
-            Size = UDim2.new(1, 0, 1, 0),
-            BackgroundColor3 = Color3.new(0,0,0),
-            BorderSizePixel = 0
-        }, {
-            Create("UIGradient", {
-                Rotation = 90,
-                Transparency = NumberSequence.new({
-                    NumberSequenceKeypoint.new(0, 1),
-                    NumberSequenceKeypoint.new(1, 0)
-                })
-            })
-        })
-    })
-
-    local Cursor = Create("Frame", {
-        Parent = SatValPanel,
-        Size = UDim2.new(0, 4, 0, 4),
-        BackgroundColor3 = Color3.new(1,1,1),
-        AnchorPoint = Vector2.new(0.5, 0.5)
-    }, {Create("UICorner", {CornerRadius = UDim.new(1, 0)})})
-
-    local HueSlider = Create("TextButton", {
-        Parent = PickerFrame,
-        Size = UDim2.new(1, -20, 0, 10),
-        Position = UDim2.new(0, 10, 0, 120),
-        Text = "",
-        AutoButtonColor = false
-    }, {
-        Create("UIGradient", {
-            Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromHSV(0,1,1)),
-                ColorSequenceKeypoint.new(0.17, Color3.fromHSV(0.17,1,1)),
-                ColorSequenceKeypoint.new(0.33, Color3.fromHSV(0.33,1,1)),
-                ColorSequenceKeypoint.new(0.5, Color3.fromHSV(0.5,1,1)),
-                ColorSequenceKeypoint.new(0.67, Color3.fromHSV(0.67,1,1)),
-                ColorSequenceKeypoint.new(0.83, Color3.fromHSV(0.83,1,1)),
-                ColorSequenceKeypoint.new(1, Color3.fromHSV(1,1,1))
-            })
-        }),
-        Create("UICorner", {CornerRadius = UDim.new(0, 2)})
-    })
-
-    return PickerFrame, SatValPanel, Cursor, HueSlider
-end
-
-local ItemFuncs = {}
+        local ItemFuncs = {}
         local ColorPickerCount = 0
         local PICKER_W, PICKER_H = 180, 170
         local OpenPickers = {}
@@ -1624,11 +1502,11 @@ local ItemFuncs = {}
                 local PosX = SliderBG.AbsolutePosition.X
                 local InputX = input.Position.X
                 if SizeX <= 0 then return end
-                
+
                 local Percent = math.clamp((InputX - PosX) / SizeX, 0, 1)
                 local range = (cfg.Max - cfg.Min)
                 Value = math.floor(cfg.Min + range * Percent)
-                
+
                 Fill.Size = UDim2.new(Percent, 0, 1, 0)
                 ValueLabel.Text = Value .. (cfg.Unit or "")
                 if cfg.Callback then cfg.Callback(Value) end
@@ -1640,7 +1518,7 @@ local ItemFuncs = {}
                     Update(input)
                 end
             end)
-            
+
             UserInputService.InputChanged:Connect(function(input)
                 if DraggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                     Update(input)
@@ -1770,9 +1648,117 @@ local ItemFuncs = {}
             local Opened = false
             ColorPickerCount = ColorPickerCount + 1
             local PickerOrder = ColorPickerCount
-            
-            local Frame, Preview = createColorPickerRow(cfg, Content, CFG, Color)
-            local PickerFrame, SatValPanel, Cursor, HueSlider = createColorPickerPopup(MainFrame, CFG)
+
+            local Frame = Create("Frame", {
+                Parent = Content,
+                Size = UDim2.new(1, 0, 0, 20),
+                BackgroundTransparency = 1,
+                ZIndex = 15
+            })
+
+            Create("TextLabel", {
+                Parent = Frame,
+                Text = cfg.Name,
+                TextColor3 = CFG.TextDark,
+                TextSize = 11,
+                Font = CFG.Font,
+                BackgroundTransparency = 1,
+                Size = UDim2.new(0.6, 0, 1, 0),
+                TextXAlignment = Enum.TextXAlignment.Left
+            })
+
+            local Preview = Create("TextButton", {
+                Parent = Frame,
+                Size = UDim2.new(0, 30, 0, 14),
+                AnchorPoint = Vector2.new(1, 0.5),
+                Position = UDim2.new(1, 0, 0.5, 0),
+                BackgroundColor3 = Color,
+                Text = "",
+                AutoButtonColor = false
+            }, {
+                Create("UIStroke", {Color = CFG.StrokeColor}),
+                Create("UICorner", {CornerRadius = UDim.new(0, 3)})
+            })
+
+            local PickerFrame = Create("Frame", {
+                Parent = MainFrame,
+                Size = UDim2.new(0, 180, 0, 0),
+                Position = UDim2.new(0, 0, 0, 0),
+                ZIndex = 200,
+                AnchorPoint = Vector2.new(0, 0),
+                BackgroundColor3 = CFG.MainColor,
+                BorderSizePixel = 0,
+                ClipsDescendants = true,
+                Visible = false
+            }, {
+                Create("UIStroke", {Color = CFG.StrokeColor}),
+                Create("UICorner", {CornerRadius = UDim.new(0, 3)})
+            })
+
+            local SatValPanel = Create("TextButton", {
+                Parent = PickerFrame,
+                Size = UDim2.new(1, -20, 0, 100),
+                Position = UDim2.new(0, 10, 0, 10),
+                BackgroundColor3 = Color3.fromHSV(0, 1, 1),
+                Text = "",
+                AutoButtonColor = false
+            }, {
+                -- Overlay putih horizontal: kiri putih -> kanan transparan
+                Create("Frame", {
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BackgroundColor3 = Color3.new(1,1,1),
+                    BorderSizePixel = 0
+                }, {
+                    Create("UIGradient", {
+                        Transparency = NumberSequence.new({
+                            NumberSequenceKeypoint.new(0, 0),
+                            NumberSequenceKeypoint.new(1, 1)
+                        })
+                    })
+                }),
+                -- Overlay hitam vertikal: atas transparan -> bawah hitam
+                Create("Frame", {
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BackgroundColor3 = Color3.new(0,0,0),
+                    BorderSizePixel = 0
+                }, {
+                    Create("UIGradient", {
+                        Rotation = 90,
+                        Transparency = NumberSequence.new({
+                            NumberSequenceKeypoint.new(0, 1),
+                            NumberSequenceKeypoint.new(1, 0)
+                        })
+                    })
+                })
+            })
+
+            local Cursor = Create("Frame", {
+                Parent = SatValPanel,
+                Size = UDim2.new(0, 4, 0, 4),
+                BackgroundColor3 = Color3.new(1,1,1),
+                AnchorPoint = Vector2.new(0.5, 0.5)
+            }, {Create("UICorner", {CornerRadius = UDim.new(1, 0)})})
+
+            local HueSlider = Create("TextButton", {
+                Parent = PickerFrame,
+                Size = UDim2.new(1, -20, 0, 10),
+                Position = UDim2.new(0, 10, 0, 120),
+                Text = "",
+                AutoButtonColor = false
+            }, {
+                Create("UIGradient", {
+                    Color = ColorSequence.new({
+                        ColorSequenceKeypoint.new(0, Color3.fromHSV(0,1,1)),
+                        ColorSequenceKeypoint.new(0.17, Color3.fromHSV(0.17,1,1)),
+                        ColorSequenceKeypoint.new(0.33, Color3.fromHSV(0.33,1,1)),
+                        ColorSequenceKeypoint.new(0.5, Color3.fromHSV(0.5,1,1)),
+                        ColorSequenceKeypoint.new(0.67, Color3.fromHSV(0.67,1,1)),
+                        ColorSequenceKeypoint.new(0.83, Color3.fromHSV(0.83,1,1)),
+                        ColorSequenceKeypoint.new(1, Color3.fromHSV(1,1,1))
+                    })
+                }),
+                Create("UICorner", {CornerRadius = UDim.new(0, 2)})
+            })
 
             local H, S, V = Color3.toHSV(Color)
             local DraggingHSV, DraggingHue = false, false
@@ -1787,21 +1773,21 @@ local ItemFuncs = {}
             end
             UpdateColor()
 
-            SatValPanel.InputBegan:Connect(function(inp) 
-                if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then 
-                    DraggingHSV = true 
-                end 
+            SatValPanel.InputBegan:Connect(function(inp)
+                if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+                    DraggingHSV = true
+                end
             end)
-            HueSlider.InputBegan:Connect(function(inp) 
-                if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then 
-                    DraggingHue = true 
-                end 
+            HueSlider.InputBegan:Connect(function(inp)
+                if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+                    DraggingHue = true
+                end
             end)
-            
-            UserInputService.InputEnded:Connect(function(inp) 
-                if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then 
-                    DraggingHSV = false; DraggingHue = false 
-                end 
+
+            UserInputService.InputEnded:Connect(function(inp)
+                if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+                    DraggingHSV = false; DraggingHue = false
+                end
             end)
 
             UserInputService.InputChanged:Connect(function(inp)
@@ -1877,7 +1863,7 @@ local ItemFuncs = {}
                 Size = UDim2.new(1, 0, 0, 35),
                 BackgroundTransparency = 1
             })
-            
+
             Create("TextLabel", {
                 Parent = Frame,
                 Text = cfg.Name,
