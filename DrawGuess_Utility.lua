@@ -2251,3 +2251,19 @@ RunService.Heartbeat:Connect(function()
         setStatus("○ menunggu  ·  " .. wc, CFG.TextDark)
     end
 end)
+
+if _G.TESTING then
+    return {
+        loadWordsFromString = loadWordsFromString,
+        rebuildLengthIndex = rebuildLengthIndex,
+        addWordToList = addWordToList,
+        matchHint = matchHint,
+        WORDLIST = WORDLIST,
+        wordSet = wordSet,
+        wordsByLength = wordsByLength,
+        pendingWords = pendingWords,
+        State = State,
+        setWordsByLength = function(t) wordsByLength = t end,
+        getWordsByLength = function() return wordsByLength end
+    }
+end
